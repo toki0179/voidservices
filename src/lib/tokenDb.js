@@ -1,10 +1,11 @@
 import Database from 'better-sqlite3';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, '..', '..', 'data', 'tokens.db');
+const dbPath = process.env.TOKEN_DB_PATH || path.join(__dirname, '..', '..', 'data', 'tokens.db');
 
 let db;
 let initializationError;
@@ -19,6 +20,7 @@ function initialize() {
 	}
 
 	try {
+		mkdirSync(path.dirname(dbPath), { recursive: true });
 		db = new Database(dbPath);
 
 		db.exec(`

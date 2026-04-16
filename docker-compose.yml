@@ -12,6 +12,7 @@ services:
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
       CLIENT_ID: ${CLIENT_ID:-}
       GUILD_ID: ${GUILD_ID:-}
+      TOKEN_DB_PATH: ${TOKEN_DB_PATH:-/app/data/tokens.db}
       NODE_ENV: production
     volumes:
       - voidservices_data:/app/data

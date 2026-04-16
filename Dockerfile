@@ -1,18 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# Build stage
-FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS builder
-
-WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY package.json package-lock.json ./
-RUN npm ci --only=production
-
-# Runtime stage - multi-arch
 FROM node:20-bookworm-slim
 
 # Build arguments for multi-arch
@@ -23,10 +10,13 @@ ARG TARGETVARIANT
 
 WORKDIR /app
 
-# Install dumb-init and Puppeteer/system dependencies
+# Install dumb-init, build toolchain, and Puppeteer/system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         dumb-init \
+        python3 \
+        make \
+        g++ \
         chromium \
         ca-certificates \
         fonts-freefont-ttf \
@@ -35,14 +25,19 @@ RUN apt-get update \
         fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy node_modules from builder
-COPY --from=builder /app/node_modules ./node_modules
+# Install production dependencies directly in target image/arch
+COPY package.json package-lock.json ./
+RUN npm ci --only=production \
+    && npm rebuild better-sqlite3 --build-from-source
 
 # Copy application code
 COPY . .
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data /app/logs
+
+# Persist runtime state across container/image updates
+VOLUME ["/app/data", "/app/logs"]
 
 # Set environment for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
