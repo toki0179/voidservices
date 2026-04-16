@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   voidservices-bot:
     image: ${BOT_IMAGE:-ghcr.io/toki0179/voidservices:latest}
@@ -27,7 +25,16 @@ services:
 
   watchtower:
     image: nickfedor/watchtower:latest
+    container_name: voidservices-watchtower
     restart: unless-stopped
+    command:
+      - --label-enable
+      - --scope
+      - voidservices-bot
+      - --cleanup
+      - --interval
+      - "300"
+      - --rolling-restart
     environment:
       REPO_USER: ${GHCR_USER:-}
       REPO_PASS: ${GHCR_TOKEN:-}
@@ -35,7 +42,7 @@ services:
       WATCHTOWER_SCOPE: "voidservices-bot"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_POLL_INTERVAL: "300"
-      WATCHTOWER_NO_STARTUP_MESSAGE: "true"
+      WATCHTOWER_NO_STARTUP_MESSAGE: "false"
       WATCHTOWER_WARN_ON_HEAD_FAILURE: "never"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
