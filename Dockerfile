@@ -52,7 +52,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 LABEL org.opencontainers.image.architecture="${TARGETARCH}${TARGETVARIANT}"
 
 # Use dumb-init to handle signals properly
-ENTRYPOINT ["/sbin/dumb-init", "--"]
+ENTRYPOINT ["dumb-init", "--"]
 
 # Start the bot
 CMD ["npm", "start"]
