@@ -1,10 +1,26 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..', '..');
+const defaultVenvPython = '/opt/selfbot-venv/bin/python';
+
+function resolvePythonCommand() {
+  const configured = process.env.SELFBOT_PYTHON;
+
+  if (configured && existsSync(configured)) {
+    return configured;
+  }
+
+  if (existsSync(defaultVenvPython)) {
+    return defaultVenvPython;
+  }
+
+  return 'python3';
+}
 
 const activeBots = new Map();
 
@@ -16,9 +32,10 @@ export function startSelfbot(userId, token, channelId, llmModel, creatorUserId) 
   }
 
   const pythonScript = path.join(projectRoot, 'selfbot', 'bot.py');
+  const pythonCommand = resolvePythonCommand();
 
   try {
-    const botProcess = spawn('python3', [pythonScript], {
+    const botProcess = spawn(pythonCommand, [pythonScript], {
       env: {
         ...process.env,
         DISCORD_TOKEN: token,

@@ -15,6 +15,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         dumb-init \
         python3 \
+        python3-venv \
         make \
         g++ \
         chromium \
@@ -33,6 +34,10 @@ RUN npm ci --only=production \
 # Copy application code
 COPY . .
 
+# Create isolated Python environment for selfbot dependencies
+RUN python3 -m venv /opt/selfbot-venv \
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt
+
 # Create data directory for SQLite database
 RUN mkdir -p /app/data /app/logs
 
@@ -42,6 +47,7 @@ VOLUME ["/app/data", "/app/logs"]
 # Set environment for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    SELFBOT_PYTHON=/opt/selfbot-venv/bin/python \
     NODE_ENV=production
 
 # Set architecture label
