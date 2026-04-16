@@ -1,11 +1,12 @@
 import { Worker } from 'worker_threads';
+import { cpus } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const WORKER_COUNT = Math.max(2, Math.floor(require('os').cpus().length / 2));
+const WORKER_COUNT = Math.max(2, Math.floor(cpus().length / 2));
 const workerPool = [];
 const taskQueue = [];
 let taskIdCounter = 0;
@@ -14,7 +15,7 @@ let taskIdCounter = 0;
 function initializeWorkerPool() {
   for (let i = 0; i < WORKER_COUNT; i++) {
     const worker = new Worker(path.join(__dirname, 'renderWorker.js'));
-    worker.on('message', handleWorkerMessage);
+    worker.on('message', (message) => handleWorkerMessage(worker, message));
     worker.on('error', handleWorkerError);
     worker.on('exit', (code) => {
       if (code !== 0) {
@@ -25,9 +26,14 @@ function initializeWorkerPool() {
   }
 }
 
-function handleWorkerMessage(message) {
+function handleWorkerMessage(worker, message) {
   const { id, success, result, error } = message;
   const task = taskQueue.find((t) => t.id === id);
+  const workerState = workerPool.find((w) => w.worker === worker);
+
+  if (workerState) {
+    workerState.busy = false;
+  }
 
   if (task) {
     if (success) {
