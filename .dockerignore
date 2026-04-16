@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Development
+.env
+.env.local
+.vscode
+.idea
+*.swp
+*.swo
+
+# Data files
+data/
+logs/
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+
+# Python
+__pycache__
+*.pyc
+venv/
+env/
+.Python
+
+# CI/CD
+.github
+
+# Documentation
+docs/
+MULTITHREADING.md
+README_DEV.md
+
+# Test files
+*.test.js
+coverage/

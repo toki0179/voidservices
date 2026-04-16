@@ -1,0 +1,20 @@
+{
+  "name": "v0id-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js",
+    "check": "node --check src/index.js && node --check src/deploy-commands.js && node --check src/lib/registerCommands.js && node --check src/lib/renderParodyCard.js && node --check src/lib/tokenDb.js && node --check src/lib/selfbotManager.js && node --check src/lib/workerPool.js && node --check src/lib/renderWorker.js && node --check src/commands/ping.js && node --check src/commands/help.js && node --check src/commands/showcase.js && node --check src/commands/classic.js && node --check src/commands/boost.js && node --check src/commands/sbcreate.js && node --check src/commands/sbrun.js && node --check src/commands/sbstop.js && node --check src/commands/sbdelete.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "discord.js": "^14.17.3",
+    "dotenv": "^16.4.5",
+    "puppeteer": "^24.25.0"
+  }
+}
