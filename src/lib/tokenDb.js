@@ -7,11 +7,21 @@ const __dirname = path.dirname(__filename);
 const dbPath = path.join(__dirname, '..', '..', 'data', 'tokens.db');
 
 let db;
+let initializationError;
 
 function initialize() {
-	db = new Database(dbPath);
+	if (db) {
+		return db;
+	}
 
-	db.exec(`
+	if (initializationError) {
+		throw initializationError;
+	}
+
+	try {
+		db = new Database(dbPath);
+
+		db.exec(`
 		CREATE TABLE IF NOT EXISTS selfbot_tokens (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			user_id TEXT UNIQUE NOT NULL,
@@ -22,6 +32,10 @@ function initialize() {
 
 		CREATE INDEX IF NOT EXISTS idx_user_id ON selfbot_tokens(user_id);
 	`);
+	} catch (error) {
+		initializationError = new Error(`Token database initialization failed: ${error.message}`);
+		throw initializationError;
+	}
 
 	return db;
 }
