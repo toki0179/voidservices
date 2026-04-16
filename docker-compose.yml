@@ -1,20 +1,19 @@
-version: '3.8'
-
 services:
   voidbot:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${BOT_IMAGE:-ghcr.io/toki0179/voidservices:latest}
     container_name: voidservices-bot
     restart: unless-stopped
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
-      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      - CLIENT_ID=${CLIENT_ID}
+      - GUILD_ID=${GUILD_ID}
       - NODE_ENV=production
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=voidservices
     networks:
       - voidservices-net
     healthcheck:
@@ -31,6 +30,24 @@ services:
         reservations:
           cpus: '1'
           memory: 512M
+
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: voidservices-watchtower
+    restart: unless-stopped
+    environment:
+      - WATCHTOWER_SCOPE=voidservices
+    command:
+      - --label-enable
+      - --scope
+      - voidservices
+      - --interval
+      - "300"
+      - --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - voidservices-net
 
 networks:
   voidservices-net:

@@ -15,10 +15,10 @@ A modern Discord.js v14 bot scaffold built around slash commands and a modular c
 - `/ping` checks latency and bot responsiveness
 - `/help` lists available commands or explains one command
 - `/showcase` creates a branded V0iD demo card embed that can be replaced with richer rendering later
-- `/classic` generates a clearly fictional Nitro Classic parody image card
 - `/boost` renders a Nitro-style proof card with the executor shown on the first line and a response identity chosen from a supplied user ID or randomized fallback on the second line
 - `/sbcreate` registers a Discord selfbot token (via secure modal popup)
 - `/sbrun` starts a selfbot in a selected channel with an LLM model of your choice
+- `/sbstop` stops a running selfbot in a selected channel
 - `/sbdelete` removes your registered selfbot token
 
 ## Assets
@@ -36,6 +36,22 @@ A modern Discord.js v14 bot scaffold built around slash commands and a modular c
 3. Set `GUILD_ID` while developing for instant command updates.
 4. Run `npm run deploy` to register slash commands.
 5. Start the bot with `npm start`.
+
+## Docker (Automated)
+
+1. Copy `.env.example` to `.env` and fill required values.
+2. Build and push multi-arch image:
+   ```bash
+   GHCR_TOKEN=<your_token> npm run docker:build
+   ```
+3. Deploy/update stack:
+   ```bash
+   npm run docker:up
+   ```
+4. View runtime logs:
+   ```bash
+   npm run docker:logs
+   ```
 
 ### Selfbot Setup (Optional)
 
