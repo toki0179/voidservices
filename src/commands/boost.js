@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { SlashCommandBuilder } from 'discord.js';
+import { AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
 import { renderImage } from '../lib/workerPool.js';
 
 const fallbackFirstNames = ['Nova', 'Echo', 'Rift', 'Pixel', 'Luna', 'Cipher', 'Moss', 'Ash'];
@@ -72,6 +72,8 @@ export default {
     ),
 
   async execute(interaction) {
+    await interaction.deferReply();
+
     const displayName = interaction.member?.displayName ?? interaction.user.globalName ?? interaction.user.username;
     const message = interaction.options.getString('message', true);
     const secondAuthor = await resolveResponseIdentity(interaction);
@@ -88,9 +90,11 @@ export default {
       responseText: message.trim(),
     });
 
-    await interaction.reply({
+    const attachment = new AttachmentBuilder(Buffer.from(image), { name: 'NitroProof.png' });
+
+    await interaction.editReply({
       content: 'Generated Nitro proof image.',
-      files: [image],
+      files: [attachment],
     });
   },
 };

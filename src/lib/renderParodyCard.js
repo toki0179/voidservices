@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import { randomInt } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { AttachmentBuilder } from 'discord.js';
 import puppeteer from 'puppeteer';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -140,7 +139,7 @@ export async function renderNitroProofCard({
 		waitForSelector: '.scrollerInner-2YIMLh',
 	});
 
-	return new AttachmentBuilder(imageBuffer, { name: 'NitroProof.png' });
+	return imageBuffer;
 }
 
 export async function renderParodyCard({ plan, name, detail, note }) {
@@ -293,5 +292,5 @@ export async function renderParodyCard({ plan, name, detail, note }) {
 		waitForSelector: '.card',
 	});
 
-	return new AttachmentBuilder(imageBuffer, { name: 'NitroClassicParody.png' });
+	return imageBuffer;
 }

@@ -135,12 +135,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       flags: MessageFlags.Ephemeral,
     };
 
-    if (interaction.deferred || interaction.replied) {
-      await interaction.followUp(payload);
-      return;
-    }
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(payload);
+        return;
+      }
 
-    await interaction.reply(payload);
+      await interaction.reply(payload);
+    } catch (responseError) {
+      console.error('Failed to send command error response:', responseError);
+    }
   }
 });
 
