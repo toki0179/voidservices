@@ -22,15 +22,17 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Install Puppeteer system dependencies with multi-arch support
+# Install Puppeteer/system font dependencies with multi-arch support
 RUN apk add --no-cache \
     chromium \
-    noto-sans \
-    noto-sans-monospace \
-    noto-serif \
-    woff-noto \
-    woff2-noto \
-    ca-certificates
+    ca-certificates \
+    freetype \
+    harfbuzz \
+    nss \
+    ttf-freefont \
+    font-noto \
+    font-noto-cjk \
+    font-noto-emoji
 
 # Copy node_modules from builder
 COPY --from=builder /app/node_modules ./node_modules
