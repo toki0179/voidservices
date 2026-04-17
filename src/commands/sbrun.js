@@ -8,11 +8,13 @@ import {
 import { hasToken } from '../lib/tokenDb.js';
 
 const LLM_MODELS = [
-  { value: 'neural-chat', label: 'Neural Chat', description: 'Fast, conversational, resource-efficient' },
-  { value: 'zephyr', label: 'Zephyr', description: 'Humanlike, natural conversations' },
-  { value: 'mistral', label: 'Mistral', description: 'Powerful reasoning and analysis' },
-  { value: 'openhermes', label: 'OpenHermes', description: 'Helpful and versatile responses' },
-  { value: 'dolphin-mixtral', label: 'Dolphin Mixtral', description: 'Advanced reasoning and knowledge' },
+  { value: 'llama3.2:3b', label: 'Llama 3.2 3B', description: "Meta's efficient 3.2B parameter model" },
+  { value: 'deepseek-r1:latest', label: 'DeepSeek R1', description: 'Strong reasoning capabilities built on Qwen' },
+  { value: 'gpt-oss:20b', label: 'GPT OSS 20B', description: 'Powerful Gemma-based 20B completion model' },
+  { value: 'mistral:latest', label: 'Mistral Latest', description: 'High-performance baseline Mistral model' },
+  { value: 'mistral-nemo:custom', label: 'Mistral Nemo', description: '12.2B open weights language model' },
+  { value: 'bakllava:latest', label: 'BakLLaVA', description: 'Vision and language model' },
+  { value: 'smollm2:135m', label: 'SmolLM2 135M', description: 'Extremely lightweight assistant' },
 ];
 
 export default {

@@ -5,10 +5,8 @@ import asyncio
 import sys
 import logging
 import json
-import random
 from importlib.metadata import PackageNotFoundError, version
 from concurrent.futures import ThreadPoolExecutor
-from ollamafreeapi import OllamaFreeAPI
 from ollama import Client as OllamaClient
 import discord
 
@@ -16,7 +14,8 @@ import discord
 TOKEN = os.getenv('DISCORD_TOKEN')
 CHANNEL_ID = int(os.getenv('CHANNEL_ID', 0))
 USER_ID = int(os.getenv('USER_ID', 0))
-LLM_MODEL = os.getenv('LLM_MODEL', 'neural-chat')
+LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434')
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
 
 # Logging
@@ -37,11 +36,13 @@ def verify_discord_py_self():
 
 # Model to parameter mapping (optimized for humanlike + resource efficiency)
 MODEL_PARAMS = {
-    'neural-chat': {'temperature': 0.7, 'top_p': 0.9},
-    'zephyr': {'temperature': 0.75, 'top_p': 0.9},
-    'mistral': {'temperature': 0.7, 'top_p': 0.95},
-    'openhermes': {'temperature': 0.8, 'top_p': 0.9},
-    'dolphin-mixtral': {'temperature': 0.75, 'top_p': 0.9},
+    'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9},
+    'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9},
+    'gpt-oss:20b': {'temperature': 0.7, 'top_p': 0.9},
+    'mistral:latest': {'temperature': 0.7, 'top_p': 0.95},
+    'mistral-nemo:custom': {'temperature': 0.7, 'top_p': 0.9},
+    'bakllava:latest': {'temperature': 0.7, 'top_p': 0.9},
+    'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9},
 }
 
 CAPTCHA_KEYWORDS = (
@@ -58,9 +59,8 @@ class SelfCordBot(discord.Client):
         self.target_channel_id = CHANNEL_ID
         self.message_context = []
         self.max_context_messages = 5
-        self.llm_client = OllamaFreeAPI()
+        self.ollama_client = OllamaClient(host=OLLAMA_HOST, timeout=LLM_TIMEOUT_SECONDS)
         self.running = True
-        self.preferred_servers = {}
         # ThreadPoolExecutor for concurrent message processing
         self.executor = ThreadPoolExecutor(max_workers=4)
         
@@ -169,41 +169,24 @@ class SelfCordBot(discord.Client):
         old_executor.shutdown(wait=False, cancel_futures=True)
     
     def _get_llm_response_sync(self, prompt, context):
-        """Get response from LLM via OllamaFreeAPI (blocking)."""
+        """Get response from a configured Ollama host (blocking)."""
         try:
             params = MODEL_PARAMS.get(LLM_MODEL, {})
 
             full_prompt = f"{context}\n\n{prompt}" if context else prompt
+            response = self.ollama_client.generate(
+                model=LLM_MODEL,
+                prompt=full_prompt,
+                options=params,
+                stream=False,
+            )
 
-            servers = self.llm_client.get_model_servers(LLM_MODEL)
-            if not servers:
-                raise RuntimeError(f"No servers available for model '{LLM_MODEL}'")
-
-            preferred = self.preferred_servers.get(LLM_MODEL)
-            random.shuffle(servers)
-            if preferred:
-                servers.sort(key=lambda server: server.get('url') != preferred)
-
-            request = self.llm_client.generate_api_request(LLM_MODEL, full_prompt, **params)
-            request['stream'] = False
-
-            last_error = None
-            for server in servers:
-                url = server.get('url')
-                if not url:
-                    continue
-                try:
-                    client = OllamaClient(host=url, timeout=LLM_TIMEOUT_SECONDS)
-                    response = client.generate(**request)
-                    text = getattr(response, 'response', None)
-                    if text:
-                        self.preferred_servers[LLM_MODEL] = url
-                        return text.strip()
-                    last_error = RuntimeError('Empty response body')
-                except Exception as server_error:
-                    last_error = server_error
-
-            raise RuntimeError(f"All servers failed for model '{LLM_MODEL}'. Last error: {last_error}")
+            text = getattr(response, 'response', None)
+            if not text and isinstance(response, dict):
+                text = response.get('response')
+            if not text:
+                raise RuntimeError('Empty response body from Ollama')
+            return text.strip()
         except Exception as e:
             logger.error(f'LLM API error: {e}')
             if self._contains_captcha_signal(str(e)):

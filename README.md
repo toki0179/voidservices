@@ -65,12 +65,19 @@ The selfbot feature allows Discord users to run AI chatbots in channels using th
 2. Ensure you have an LLM API running locally (e.g., Ollama):
    - Download and install [Ollama](https://ollama.ai)
    - Run: `ollama serve`
-   - Optionally pull models: `ollama pull neural-chat`, `ollama pull mistral`, etc.
+   - Pull models used by `/sbrun`:
+     - `ollama pull llama3.2:3b`
+     - `ollama pull deepseek-r1:latest`
+     - `ollama pull gpt-oss:20b`
+     - `ollama pull mistral:latest`
+     - `ollama pull mistral-nemo:custom`
+     - `ollama pull bakllava:latest`
+     - `ollama pull smollm2:135m`
 
 3. Users can then:
    - Use `/sbcreate` to register their Discord token securely
    - Use `/sbrun` to start a selfbot in any channel
-   - Choose from 5 LLM models: Neural Chat, Mistral, Llama 2, Phi, Orca
+   - Choose from 7 LLM models: llama3.2:3b, deepseek-r1:latest, gpt-oss:20b, mistral:latest, mistral-nemo:custom, bakllava:latest, smollm2:135m
    - Use `/sbdelete` to remove their token when done
 
 ## Extending the bot

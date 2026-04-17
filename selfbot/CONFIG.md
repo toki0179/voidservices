@@ -16,7 +16,8 @@ pip install -r requirements.txt
 
 ## LLM Setup
 
-The selfbot communicates with an LLM API at `http://localhost:8000/api/generate` by default.
+The selfbot communicates with Ollama directly at `http://127.0.0.1:11434` by default.
+You can override this with `OLLAMA_HOST`.
 
 ### Using Ollama (Recommended)
 
@@ -27,20 +28,24 @@ The selfbot communicates with an LLM API at `http://localhost:8000/api/generate`
    ```
 3. Pull desired models:
    ```bash
-   ollama pull neural-chat
-   ollama pull mistral
-   ollama pull llama2
-   ollama pull phi
-   ollama pull orca
+   ollama pull llama3.2:3b
+   ollama pull deepseek-r1:latest
+   ollama pull gpt-oss:20b
+   ollama pull mistral:latest
+   ollama pull mistral-nemo:custom
+   ollama pull bakllava:latest
+   ollama pull smollm2:135m
    ```
 
 ### Available Models
 
-- **Neural Chat** - Fast, conversational, good for casual chat
-- **Mistral** - Powerful reasoning, good for complex questions
-- **Llama 2** - General purpose, balanced performance
-- **Phi** - Lightweight, efficient, good for limited resources
-- **Orca** - Instruction-following, good for directing behavior
+- **llama3.2:3b** - Meta's efficient 3.2B parameter model
+- **deepseek-r1:latest** - Strong reasoning capabilities built on Qwen
+- **gpt-oss:20b** - Powerful Gemma-based 20B completion model
+- **mistral:latest** - High-performance baseline Mistral model
+- **mistral-nemo:custom** - 12.2B open weights language model
+- **bakllava:latest** - Vision and language model
+- **smollm2:135m** - Extremely lightweight assistant
 
 ## Environment Variables
 
@@ -50,6 +55,8 @@ The JavaScript bot passes these to the Python selfbot:
 - `CHANNEL_ID` - Target channel ID for the selfbot
 - `USER_ID` - ID of the user who started the bot
 - `LLM_MODEL` - Selected LLM model from `/sbrun`
+- `OLLAMA_HOST` - Ollama server URL (default: `http://127.0.0.1:11434`)
+- `LLM_TIMEOUT_SECONDS` - Per-request timeout in seconds (default: `30`)
 
 ## Model Parameters
 
@@ -66,6 +73,6 @@ Each model has tuned hyperparameters for optimal performance:
 
 ## Troubleshooting
 
-- **"Failed to connect to LLM API"**: Ensure Ollama is running on localhost:8000
+- **"Failed to connect to LLM API"**: Ensure Ollama is running and `OLLAMA_HOST` is reachable
 - **"Model not found"**: Pull the model with `ollama pull <model-name>`
 - **"Token invalid"**: Verify the discord.py-self library is compatible with your Discord account type
