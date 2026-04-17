@@ -1,9 +1,4 @@
-try:
-	import undetected_chromedriver as uc
-	UC_IMPORT_ERROR = None
-except ModuleNotFoundError as error:
-	uc = None
-	UC_IMPORT_ERROR = error
+from seleniumbase import Driver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -20,12 +15,17 @@ import re
 import os
 from datetime import datetime
 from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.proxy import Proxy, ProxyType
 import tls_client
-import base64
 import sys
 import json
 
+# SeleniumBase import - this replaces undetected_chromedriver
+try:
+    from seleniumbase import Driver
+    SB_IMPORT_ERROR = None
+except ImportError as error:
+    Driver = None
+    SB_IMPORT_ERROR = error
 
 def write_credentials_to_file(username, email, password, token):
     """Write credentials to a file that the bot can read and send."""
@@ -48,19 +48,18 @@ def write_credentials_to_file(username, email, password, token):
         print(f'{Fore.RED}Failed to write credentials: {str(e)}{Style.RESET_ALL}')
         return None
 
-
 def resolve_number_input():
-	raw_value = None
+    raw_value = None
 
-	if len(os.sys.argv) > 1:
-		raw_value = os.sys.argv[1]
-	elif os.getenv('GEN_NUMBER'):
-		raw_value = os.getenv('GEN_NUMBER')
+    if len(os.sys.argv) > 1:
+        raw_value = os.sys.argv[1]
+    elif os.getenv('GEN_NUMBER'):
+        raw_value = os.getenv('GEN_NUMBER')
 
-	if raw_value is None:
-		raise ValueError('Missing required number input.')
+    if raw_value is None:
+        raise ValueError('Missing required number input.')
 
-	return float(raw_value)
+    return float(raw_value)
 
 def account_ratelimit():
     """Fetches rate limit using account creation data."""
@@ -111,7 +110,8 @@ def account_ratelimit():
                 return 1
     except Exception as e:
         print(f'{Fore.RED} Error fetching rate limit: {str(e)}')
-		
+        return 1
+
 init(autoreset=True)
 # Clear screen in a cross-platform way
 if os.name == 'nt':
@@ -119,9 +119,10 @@ if os.name == 'nt':
     os.system("title Ultimate EV GEN V1 By Anomus.LY_")
 else:
     os.system("clear")
+
 def random_sleep(base=2, variation=3):
     time.sleep(base + random.uniform(0, variation))
-	
+
 def timestamp():
     return f"{Fore.LIGHTBLACK_EX}[{datetime.now().strftime('%H:%M:%S %d-%m-%Y')}]"
 
@@ -130,12 +131,42 @@ def print_templog(temp_email):
 
 def generate_yopmail_email():
     username = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-    email = f"{username}@gmail.com" # replaced whatever that was with gmail cuz that shi aint working 
+    email = f"{username}@gmail.com"
     return username, email
 
 def generate_random_string(length=12):
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for i in range(length))
+
+def init_seleniumbase_driver():
+    """Initialize SeleniumBase driver with UC mode"""
+    try:
+        # SeleniumBase Driver with undetected mode
+        driver = Driver(
+            browser="chrome",
+            uc=True,  # Undetected Chrome mode
+            headless=False,  # Use Xvfb instead of headless
+            headless2=False,  # Disable headless2 to avoid issues
+            agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            disable_csp=True,
+            disable_automation=False,  # Keep some automation features
+            no_sandbox=True,
+            disable_gpu=True,
+            window_size=(1920, 1080),
+            incognito=False,
+            guest_mode=False,
+            devtools=False
+        )
+        
+        # Set window size explicitly
+        driver.set_window_size(1920, 1080)
+        
+        print(f"{timestamp()} {Fore.GREEN}SeleniumBase driver initialized successfully{Style.RESET_ALL}")
+        return driver
+        
+    except Exception as e:
+        print(f"{timestamp()} {Fore.RED}Failed to initialize SeleniumBase driver: {str(e)[:200]}{Style.RESET_ALL}")
+        return None
 
 def main():
     init(autoreset=True)
@@ -148,8 +179,10 @@ def main():
     loop_count = int(number_value)
     generated_file = None
 
-    if uc is None:
-        print(f"{Fore.YELLOW}undetected_chromedriver unavailable: {UC_IMPORT_ERROR}{Style.RESET_ALL}")
+    if Driver is None:
+        print(f"{Fore.RED}SeleniumBase is not available: {SB_IMPORT_ERROR}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Please install: pip install seleniumbase{Style.RESET_ALL}")
+        return
 
     print(f"[{now}] Generator starting {loop_count} iterations")
 
@@ -163,51 +196,18 @@ def main():
             continue
         print_templog(email)
         driver = None
+        
         try:
-            if uc is None:
-                print(f"{timestamp()} {Fore.RED}undetected_chromedriver is not available. Skipping browser automation for iteration {index + 1}.{Style.RESET_ALL}")
+            # Initialize SeleniumBase driver
+            driver = init_seleniumbase_driver()
+            if not driver:
+                print(f"{timestamp()} {Fore.RED}Failed to initialize driver. Skipping iteration {index + 1}.{Style.RESET_ALL}")
                 continue
             
-            # Resolve Chrome/Chromium binary path
-            chrome_paths = [
-                os.getenv('CHROME_BIN'),
-                os.getenv('CHROMIUM_BIN'),
-                '/usr/bin/chromium',
-                '/usr/bin/chromium-browser',
-                '/usr/bin/google-chrome',
-                '/usr/bin/google-chrome-stable',
-                '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            ]
-            
-            chrome_bin = None
-            for path in chrome_paths:
-                if path and os.path.exists(path):
-                    chrome_bin = path
-                    print(f"{timestamp()} {Fore.GREEN}Found Chrome at: {chrome_bin}{Style.RESET_ALL}")
-                    break
-            
-            if not chrome_bin:
-                print(f"{timestamp()} {Fore.RED}Chrome/Chromium not found at any known path. Skipping iteration {index + 1}.{Style.RESET_ALL}")
-                continue
-            
-            options = uc.ChromeOptions()
-            options.binary_location = chrome_bin
-            options.add_argument("--disable-popup-blocking")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--ignore-certificate-errors")
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1920,1080')
-            try:
-                driver = uc.Chrome(options=options, use_subprocess=True)
-            except Exception as chrome_error:
-                print(f"{timestamp()} {Fore.RED}Failed to initialize Chrome/undetected_chromedriver: {str(chrome_error)[:200]}{Style.RESET_ALL}")
-                print(f"{timestamp()} {Fore.YELLOW}Ensure Chromium/Chrome is installed on the system.{Style.RESET_ALL}")
-                continue
-            driver.maximize_window()
+            # Navigate to Discord registration
             driver.get("https://discord.com/register")
+            
+            # Wait for email field and fill form
             WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, "email")))
             driver.find_element(By.NAME, "email").send_keys(email)
             driver.find_element(By.NAME, "global_name").send_keys("Lunarxterm")
@@ -239,10 +239,10 @@ def main():
                 actions.send_keys("2000")
                 actions.send_keys(Keys.ENTER)
                 actions.perform()
-             
+            
+            # Handle checkboxes
             try:
                 locator = (By.XPATH, "//input[@type='checkbox']")
-                
                 checkboxes = WebDriverWait(driver, 10).until(
                     EC.presence_of_all_elements_located(locator)
                 )
@@ -260,27 +260,29 @@ def main():
             except Exception as e:
                 print(f"{timestamp()} {Fore.RED}Error handling checkboxes: {e}{Style.RESET_ALL}")
 
-            finally:
-                continue_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]')))
-                limit = account_ratelimit()
-                if limit > 1:
-                    print(f'{timestamp()}{Fore.RED}[INFO] Ratelimited for {limit} seconds. Waiting...{Style.RESET_ALL}')
-                    time.sleep(limit)
-                continue_button.click()
-                print(f"{timestamp()} {Fore.BLUE}Form submitted. Waiting for CAPTCHA or redirect...{Style.RESET_ALL}")
-                
-                WebDriverWait(driver, 300).until(EC.url_contains("discord.com/channels/@me"))
-                print(f"{timestamp()} {Fore.GREEN}Redirected to Discord page!{Style.RESET_ALL}")
+            # Submit form
+            continue_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]')))
+            limit = account_ratelimit()
+            if limit > 1:
+                print(f'{timestamp()}{Fore.RED}[INFO] Ratelimited for {limit} seconds. Waiting...{Style.RESET_ALL}')
+                time.sleep(limit)
+            continue_button.click()
+            print(f"{timestamp()} {Fore.BLUE}Form submitted. Waiting for CAPTCHA or redirect...{Style.RESET_ALL}")
+            
+            # Wait for redirect to Discord channels
+            WebDriverWait(driver, 300).until(EC.url_contains("discord.com/channels/@me"))
+            print(f"{timestamp()} {Fore.GREEN}Redirected to Discord page!{Style.RESET_ALL}")
 
-                driver.quit()
-                print(f"{timestamp()} {Fore.BLUE}Logging in to fetch token...{Style.RESET_ALL}")
-                success = login_and_fetch_token(email, password_value)
-                if success:
-                    print(f"{timestamp()} {Fore.GREEN}Process complete for iteration {index + 1}.{Style.RESET_ALL}")
-                    token = success if isinstance(success, str) else generate_random_string(64)
-                    generated_file = write_credentials_to_file(username, email, password_value, token)
-                else:
-                    print(f"{timestamp()} {Fore.RED}Failed to fetch the token.{Style.RESET_ALL}")
+            driver.quit()
+            print(f"{timestamp()} {Fore.BLUE}Logging in to fetch token...{Style.RESET_ALL}")
+            
+            success = login_and_fetch_token(email, password_value)
+            if success:
+                print(f"{timestamp()} {Fore.GREEN}Process complete for iteration {index + 1}.{Style.RESET_ALL}")
+                token = success if isinstance(success, str) else generate_random_string(64)
+                generated_file = write_credentials_to_file(username, email, password_value, token)
+            else:
+                print(f"{timestamp()} {Fore.RED}Failed to fetch the token.{Style.RESET_ALL}")
 
         except Exception as e:
             print(f"{timestamp()} {Fore.RED}Error in iteration {index + 1}: {str(e)}{Style.RESET_ALL}")
@@ -303,7 +305,6 @@ def main():
         print(f"GENERATED_FILE:{generated_file}")
     else:
         print(f"{Fore.RED}❌ Generation completed but no credentials were saved.{Style.RESET_ALL}")
-
 
 def login_and_fetch_token(email, password):
     data = {"login": email, "password": password, "undelete": "false"}
@@ -339,7 +340,6 @@ def login_and_fetch_token(email, password):
         return False
         
     return False
-
 
 if __name__ == '__main__':
     main()

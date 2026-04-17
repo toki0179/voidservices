@@ -76,6 +76,7 @@ RUN python3 -m venv /opt/selfbot-venv \
     && python3 -m venv /opt/generator-venv \
     && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
     && /opt/generator-venv/bin/pip install --no-cache-dir \
+    && /opt/generator-venv/bin/pip install seleniumbase \
         undetected-chromedriver \
         selenium \
         requests \
