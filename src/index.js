@@ -207,6 +207,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.isButton()) {
+    const dmChannelId = parseSetupCustomId(interaction.customId, 'dms');
+    if (dmChannelId) {
+      const setupState = getSetupState(interaction.user.id, dmChannelId);
+      const updatedState = {
+        ...setupState,
+        listenToDms: !setupState.listenToDms,
+      };
+      setSetupState(interaction.user.id, dmChannelId, updatedState);
+
+      await interaction.update(buildSbRunSetupUi(`<#${dmChannelId}>`, updatedState));
+      return;
+    }
+
     const promptChannelId = parseSetupCustomId(interaction.customId, 'prompt');
     if (promptChannelId) {
       const setupState = getSetupState(interaction.user.id, promptChannelId);
