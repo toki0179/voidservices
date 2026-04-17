@@ -50,7 +50,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
     && wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium-common_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-common.deb \
     && wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium-driver_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-driver.deb \
     && wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium-sandbox_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-sandbox.deb \
-        && dpkg -i /tmp/chromium*.deb \
+        && dpkg -i /tmp/chromium*.deb || true \
         && apt-get update \
         && apt-get install -f -y; \
     else \
