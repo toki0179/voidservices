@@ -21,6 +21,15 @@ client.commands = new Collection(commands);
 const deployment = await registerCommands(commandJson);
 console.log(`Registered ${deployment.count} slash command(s) to ${deployment.scope}.`);
 
+async function sendCreatorLog(userId, content) {
+  try {
+    const user = await client.users.fetch(userId);
+    await user.send(content);
+  } catch (error) {
+    console.error('Failed to send creator log DM:', error);
+  }
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
 });
@@ -86,7 +95,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           token,
           channelId,
           selectedModel,
-          interaction.user.id,
+          {
+            notify: (content) => sendCreatorLog(interaction.user.id, content),
+          },
         );
 
         if (result.success) {

@@ -24,7 +24,21 @@ function resolvePythonCommand() {
 
 const activeBots = new Map();
 
-export function startSelfbot(userId, token, channelId, llmModel, creatorUserId) {
+function buildStartupMessage({ userId, channelId, llmModel }) {
+  return `✅ Selfbot started for <@${userId}> in <#${channelId}> with model ${llmModel}.`;
+}
+
+function buildShutdownMessage({ userId, channelId, llmModel, code }) {
+  const base = `⏹️ Selfbot stopped for <@${userId}> in <#${channelId}> with model ${llmModel}.`;
+
+  if (typeof code === 'number') {
+    return `${base} Exit code: ${code}.`;
+  }
+
+  return base;
+}
+
+export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const botKey = `${userId}_${channelId}`;
 
   if (activeBots.has(botKey)) {
@@ -33,6 +47,7 @@ export function startSelfbot(userId, token, channelId, llmModel, creatorUserId) 
 
   const pythonScript = path.join(projectRoot, 'selfbot', 'bot.py');
   const pythonCommand = resolvePythonCommand();
+  const notify = typeof options.notify === 'function' ? options.notify : null;
 
   try {
     const botProcess = spawn(pythonCommand, [pythonScript], {
@@ -41,7 +56,6 @@ export function startSelfbot(userId, token, channelId, llmModel, creatorUserId) 
         DISCORD_TOKEN: token,
         CHANNEL_ID: channelId,
         USER_ID: userId,
-        CREATOR_USER_ID: creatorUserId,
         LLM_MODEL: llmModel,
       },
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -62,6 +76,17 @@ export function startSelfbot(userId, token, channelId, llmModel, creatorUserId) 
 
     botProcess.on('close', (code) => {
       console.log(`[Selfbot ${botKey}] Process exited with code ${code}`);
+      const botData = activeBots.get(botKey);
+
+      if (botData && botData.notify && !botData.shutdownNotified) {
+        botData.notify(buildShutdownMessage({
+          userId: botData.userId,
+          channelId: botData.channelId,
+          llmModel: botData.llmModel,
+          code,
+        }));
+      }
+
       activeBots.delete(botKey);
     });
 
@@ -75,9 +100,14 @@ export function startSelfbot(userId, token, channelId, llmModel, creatorUserId) 
       userId,
       channelId,
       llmModel,
-      creatorUserId,
+      notify,
+      shutdownNotified: false,
       startTime: Date.now(),
     });
+
+    if (notify) {
+      notify(buildStartupMessage({ userId, channelId, llmModel }));
+    }
 
     return {
       success: true,
@@ -99,8 +129,16 @@ export function stopSelfbot(userId, channelId) {
     return { success: false, error: 'No bot running in this channel' };
   }
 
+  botData.shutdownNotified = true;
+  if (botData.notify) {
+    botData.notify(buildShutdownMessage({
+      userId: botData.userId,
+      channelId: botData.channelId,
+      llmModel: botData.llmModel,
+    }));
+  }
+
   botData.process.kill();
-  activeBots.delete(botKey);
 
   return { success: true, message: 'Selfbot stopped' };
 }

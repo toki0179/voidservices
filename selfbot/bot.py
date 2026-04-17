@@ -12,7 +12,6 @@ import discord
 TOKEN = os.getenv('DISCORD_TOKEN')
 CHANNEL_ID = int(os.getenv('CHANNEL_ID', 0))
 USER_ID = int(os.getenv('USER_ID', 0))
-CREATOR_USER_ID = int(os.getenv('CREATOR_USER_ID', 0))
 LLM_MODEL = os.getenv('LLM_MODEL', 'neural-chat')
 
 # Logging
@@ -35,7 +34,6 @@ class SelfCordBot(discord.Client):
         self.message_context = []
         self.max_context_messages = 5
         self.llm_client = OllamaFreeAPI()
-        self.creator_user_id = CREATOR_USER_ID
         self.running = True
         # ThreadPoolExecutor for concurrent message processing
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -44,16 +42,6 @@ class SelfCordBot(discord.Client):
         logger.info(f'Selfbot logged in as {self.user}')
         logger.info(f'Monitoring channel {self.target_channel_id}')
         logger.info(f'Using model: {LLM_MODEL}')
-        
-        # Send startup log to creator DMs
-        try:
-            creator = await self.fetch_user(self.creator_user_id)
-            await creator.send(f'✅ **Selfbot Started**\n'
-                             f'Channel: <#{self.target_channel_id}>\n'
-                             f'Model: {LLM_MODEL}\n'
-                             f'Account: {self.user}')
-        except Exception as e:
-            logger.error(f'Failed to send startup log to creator: {e}')
         
     async def on_message(self, message):
         # Ignore messages from self
@@ -146,15 +134,6 @@ class SelfCordBot(discord.Client):
         # Shutdown thread pool
         self.executor.shutdown(wait=True)
         
-        # Send shutdown log to creator DMs
-        try:
-            creator = await self.fetch_user(self.creator_user_id)
-            await creator.send(f'⏹️ **Selfbot Stopped**\n'
-                             f'Channel: <#{self.target_channel_id}>\n'
-                             f'Model: {LLM_MODEL}')
-        except Exception as e:
-            logger.error(f'Failed to send shutdown log to creator: {e}')
-        
         await self.close()
     
     @staticmethod
@@ -180,8 +159,8 @@ class SelfCordBot(discord.Client):
         return chunks
 
 async def main():
-    if not TOKEN or not CHANNEL_ID or not CREATOR_USER_ID:
-        logger.error('Error: Missing DISCORD_TOKEN, CHANNEL_ID, or CREATOR_USER_ID')
+    if not TOKEN or not CHANNEL_ID:
+        logger.error('Error: Missing DISCORD_TOKEN or CHANNEL_ID')
         sys.exit(1)
     
     logger.info(f'Starting selfbot for user {USER_ID}')
