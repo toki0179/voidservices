@@ -21,10 +21,23 @@ client.commands = new Collection(commands);
 const deployment = await registerCommands(commandJson);
 console.log(`Registered ${deployment.count} slash command(s) to ${deployment.scope}.`);
 
-async function sendCreatorLog(userId, content) {
+async function sendUserDm(userId, content) {
   try {
     const user = await client.users.fetch(userId);
     await user.send(content);
+  } catch (error) {
+    console.error('Failed to send user DM:', error);
+  }
+}
+
+async function sendCreatorLog(content) {
+  if (!config.creatorId) {
+    return;
+  }
+
+  try {
+    const creator = await client.users.fetch(config.creatorId);
+    await creator.send(content);
   } catch (error) {
     console.error('Failed to send creator log DM:', error);
   }
@@ -96,7 +109,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           channelId,
           selectedModel,
           {
-            notify: (content) => sendCreatorLog(interaction.user.id, content),
+            notify: (content) => sendUserDm(interaction.user.id, content),
+            notifyError: (content) => sendCreatorLog(content),
           },
         );
 

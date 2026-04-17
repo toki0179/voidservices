@@ -40,16 +40,23 @@ class SelfCordBot(discord.Client):
         
     async def on_ready(self):
         logger.info(f'Selfbot logged in as {self.user}')
-        logger.info(f'Monitoring channel {self.target_channel_id}')
+        if self.target_channel_id:
+            logger.info(f'Monitoring channel {self.target_channel_id} and DMs')
+        else:
+            logger.info('Monitoring DMs only')
         logger.info(f'Using model: {LLM_MODEL}')
         
     async def on_message(self, message):
         # Ignore messages from self
         if self.user and message.author == self.user:
             return
-            
-        # Only respond in the target channel
-        if message.channel.id != self.target_channel_id:
+
+        is_dm = isinstance(message.channel, discord.DMChannel) or message.guild is None
+
+        # Respond in DMs, or in configured guild channel when provided.
+        if not is_dm and self.target_channel_id and message.channel.id != self.target_channel_id:
+            return
+        if not is_dm and not self.target_channel_id:
             return
             
         # Ignore bot messages
@@ -159,8 +166,8 @@ class SelfCordBot(discord.Client):
         return chunks
 
 async def main():
-    if not TOKEN or not CHANNEL_ID:
-        logger.error('Error: Missing DISCORD_TOKEN or CHANNEL_ID')
+    if not TOKEN:
+        logger.error('Error: Missing DISCORD_TOKEN')
         sys.exit(1)
     
     logger.info(f'Starting selfbot for user {USER_ID}')

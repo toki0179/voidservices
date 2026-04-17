@@ -38,6 +38,15 @@ function buildShutdownMessage({ userId, channelId, llmModel, code }) {
   return base;
 }
 
+function buildErrorMessage({ userId, channelId, llmModel, source, detail }) {
+  const truncated = (detail || '').trim().slice(0, 1500) || 'No details available.';
+  return [
+    `🚨 Selfbot error for <@${userId}> in <#${channelId}> with model ${llmModel}.`,
+    `Source: ${source}`,
+    `\`\`\`${truncated}\`\`\``,
+  ].join('\n');
+}
+
 export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const botKey = `${userId}_${channelId}`;
 
@@ -48,6 +57,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const pythonScript = path.join(projectRoot, 'selfbot', 'bot.py');
   const pythonCommand = resolvePythonCommand();
   const notify = typeof options.notify === 'function' ? options.notify : null;
+  const notifyError = typeof options.notifyError === 'function' ? options.notifyError : null;
 
   try {
     const botProcess = spawn(pythonCommand, [pythonScript], {
@@ -63,6 +73,21 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
 
     let outputBuffer = '';
     let errorBuffer = '';
+    let lastErrorNotification = 0;
+
+    const maybeNotifyError = (source, detail) => {
+      if (!notifyError) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastErrorNotification < 5000) {
+        return;
+      }
+
+      lastErrorNotification = now;
+      notifyError(buildErrorMessage({ userId, channelId, llmModel, source, detail }));
+    };
 
     botProcess.stdout.on('data', (data) => {
       outputBuffer += data.toString();
@@ -70,13 +95,19 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
     });
 
     botProcess.stderr.on('data', (data) => {
-      errorBuffer += data.toString();
-      console.error(`[Selfbot ${botKey}] ERROR: ${data}`);
+      const text = data.toString();
+      errorBuffer += text;
+      console.error(`[Selfbot ${botKey}] ERROR: ${text}`);
+      maybeNotifyError('stderr', text);
     });
 
     botProcess.on('close', (code) => {
       console.log(`[Selfbot ${botKey}] Process exited with code ${code}`);
       const botData = activeBots.get(botKey);
+
+      if (code && code !== 0) {
+        maybeNotifyError('process-close', `Exited with code ${code}. ${errorBuffer.slice(-600)}`);
+      }
 
       if (botData && botData.notify && !botData.shutdownNotified) {
         botData.notify(buildShutdownMessage({
@@ -92,6 +123,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
 
     botProcess.on('error', (err) => {
       console.error(`[Selfbot ${botKey}] Error:`, err);
+      maybeNotifyError('process-error', err?.message || String(err));
       activeBots.delete(botKey);
     });
 

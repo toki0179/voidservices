@@ -14,4 +14,5 @@ export const config = {
   token: requiredEnv('DISCORD_TOKEN'),
   clientId: requiredEnv('CLIENT_ID'),
   guildId: process.env.GUILD_ID || '',
+  creatorId: process.env.CREATOR_ID || '',
 };
