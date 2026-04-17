@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REGISTRY="ghcr.io"
-GHCR_USER="${GHCR_USER:-toki0179}"
+GHCR_USER="${GHCR_USER:-$(git config --get user.name | tr '[:upper:]' '[:lower:]' | tr ' ' '-' || echo toki0179)}"
 GHCR_IMAGE="${GHCR_IMAGE:-voidservices}"
 PLATFORMS="${1:-${PLATFORMS:-linux/amd64,linux/arm64}}"
 IMAGE_REF="${REGISTRY}/${GHCR_USER}/${GHCR_IMAGE}"
