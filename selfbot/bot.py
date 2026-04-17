@@ -17,6 +17,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 CHANNEL_ID = int(os.getenv('CHANNEL_ID', 0))
 USER_ID = int(os.getenv('USER_ID', 0))
 LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
+BASE_PROMPT = (os.getenv('BASE_PROMPT', '') or '').strip()
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
 MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '1200'))
 
@@ -209,7 +210,13 @@ class SelfCordBot(discord.Client):
         try:
             params = MODEL_PARAMS.get(LLM_MODEL, {})
 
-            full_prompt = f"{context}\n\n{prompt}" if context else prompt
+            sections = []
+            if BASE_PROMPT:
+                sections.append(f"System instructions:\n{BASE_PROMPT}")
+            if context:
+                sections.append(f"Conversation:\n{context}")
+            sections.append(f"User:\n{prompt}")
+            full_prompt = "\n\n".join(sections)
             resolved_model = self._resolve_model_name(LLM_MODEL)
             servers = self.llm_client.get_model_servers(resolved_model)
             if not servers:

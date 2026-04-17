@@ -24,8 +24,9 @@ function resolvePythonCommand() {
 
 const activeBots = new Map();
 
-function buildStartupMessage({ userId, channelId, llmModel }) {
-  return `✅ Selfbot started for <@${userId}> in <#${channelId}> with model ${llmModel}.`;
+function buildStartupMessage({ userId, channelId, llmModel, hasBasePrompt }) {
+  const promptSummary = hasBasePrompt ? ' Prompt mode: custom.' : ' Prompt mode: default.';
+  return `✅ Selfbot started for <@${userId}> in <#${channelId}> with model ${llmModel}.${promptSummary}`;
 }
 
 function buildShutdownMessage({ userId, channelId, llmModel, code }) {
@@ -100,6 +101,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const notify = typeof options.notify === 'function' ? options.notify : null;
   const notifyError = typeof options.notifyError === 'function' ? options.notifyError : null;
   const notifyCaptcha = typeof options.notifyCaptcha === 'function' ? options.notifyCaptcha : null;
+  const basePrompt = typeof options.basePrompt === 'string' ? options.basePrompt.trim() : '';
 
   try {
     const botProcess = spawn(pythonCommand, [pythonScript], {
@@ -109,6 +111,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
         CHANNEL_ID: channelId,
         USER_ID: userId,
         LLM_MODEL: llmModel,
+        BASE_PROMPT: basePrompt,
       },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -205,7 +208,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
     });
 
     if (notify) {
-      notify(buildStartupMessage({ userId, channelId, llmModel }));
+      notify(buildStartupMessage({ userId, channelId, llmModel, hasBasePrompt: Boolean(basePrompt) }));
     }
 
     return {

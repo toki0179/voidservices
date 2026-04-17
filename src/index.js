@@ -1,11 +1,26 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Client, Collection, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import {
+  ActionRowBuilder,
+  Client,
+  Collection,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
 import { config } from './config.js';
 import { loadCommands } from './lib/commandLoader.js';
 import { registerCommands } from './lib/registerCommands.js';
 import { saveToken, getToken } from './lib/tokenDb.js';
 import { startSelfbot } from './lib/selfbotManager.js';
+import {
+  buildSbRunSetupUi,
+  getDefaultSbRunConfig,
+  resolveBasePrompt,
+} from './commands/sbrun.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +35,60 @@ client.commands = new Collection(commands);
 
 const deployment = await registerCommands(commandJson);
 console.log(`Registered ${deployment.count} slash command(s) to ${deployment.scope}.`);
+
+const sbRunSetupState = new Map();
+const setupTtlMs = 15 * 60 * 1000;
+
+function makeSetupKey(userId, channelId) {
+  return `${userId}:${channelId}`;
+}
+
+function parseSetupCustomId(customId, expectedAction) {
+  const parts = String(customId || '').split(':');
+  if (parts.length !== 3) {
+    return null;
+  }
+  if (parts[0] !== 'sbrun' || parts[1] !== expectedAction) {
+    return null;
+  }
+  return parts[2] || null;
+}
+
+function pruneSetupState() {
+  const now = Date.now();
+  for (const [key, value] of sbRunSetupState.entries()) {
+    if (now - value.updatedAt > setupTtlMs) {
+      sbRunSetupState.delete(key);
+    }
+  }
+}
+
+function getSetupState(userId, channelId) {
+  const key = makeSetupKey(userId, channelId);
+  const existing = sbRunSetupState.get(key);
+  if (existing) {
+    existing.updatedAt = Date.now();
+    return existing;
+  }
+
+  const fresh = {
+    ...getDefaultSbRunConfig(),
+    updatedAt: Date.now(),
+  };
+  sbRunSetupState.set(key, fresh);
+  return fresh;
+}
+
+function setSetupState(userId, channelId, nextState) {
+  sbRunSetupState.set(makeSetupKey(userId, channelId), {
+    ...nextState,
+    updatedAt: Date.now(),
+  });
+}
+
+function clearSetupState(userId, channelId) {
+  sbRunSetupState.delete(makeSetupKey(userId, channelId));
+}
 
 async function sendUserDm(userId, content) {
   try {
@@ -48,6 +117,8 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  pruneSetupState();
+
   if (interaction.isModalSubmit()) {
     if (interaction.customId === 'sbtoken_modal') {
       const token = interaction.fields.getTextInputValue('token_input');
@@ -75,40 +146,101 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
     }
+
+    const promptChannelId = parseSetupCustomId(interaction.customId, 'promptModal');
+    if (promptChannelId) {
+      const setupState = getSetupState(interaction.user.id, promptChannelId);
+      const customPrompt = interaction.fields.getTextInputValue('sbrun_custom_prompt') || '';
+      setSetupState(interaction.user.id, promptChannelId, {
+        ...setupState,
+        customPrompt,
+      });
+
+      await interaction.reply({
+        content: `Custom prompt saved for <#${promptChannelId}>. Press Start Selfbot when ready.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
     return;
   }
 
   if (interaction.isStringSelectMenu()) {
-    if (interaction.customId === 'llm_model_select') {
-      const selectedModel = interaction.values[0];
-      const channelIdMatch = interaction.message.embeds[0]?.description?.match(/\d+/);
-      const channelId = channelIdMatch ? channelIdMatch[0] : null;
+    const modelChannelId = parseSetupCustomId(interaction.customId, 'model');
+    if (modelChannelId) {
+      const setupState = getSetupState(interaction.user.id, modelChannelId);
+      const updatedState = {
+        ...setupState,
+        model: interaction.values[0],
+      };
+      setSetupState(interaction.user.id, modelChannelId, updatedState);
 
-      if (!channelId) {
-        await interaction.reply({
-          content: 'Error: Could not determine target channel.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
+      await interaction.update(buildSbRunSetupUi(`<#${modelChannelId}>`, updatedState));
+      return;
+    }
+
+    const presetChannelId = parseSetupCustomId(interaction.customId, 'preset');
+    if (presetChannelId) {
+      const setupState = getSetupState(interaction.user.id, presetChannelId);
+      const updatedState = {
+        ...setupState,
+        preset: interaction.values[0],
+      };
+      setSetupState(interaction.user.id, presetChannelId, updatedState);
+
+      await interaction.update(buildSbRunSetupUi(`<#${presetChannelId}>`, updatedState));
+      return;
+    }
+    return;
+  }
+
+  if (interaction.isButton()) {
+    const promptChannelId = parseSetupCustomId(interaction.customId, 'prompt');
+    if (promptChannelId) {
+      const setupState = getSetupState(interaction.user.id, promptChannelId);
+      const modal = new ModalBuilder()
+        .setCustomId(`sbrun:promptModal:${promptChannelId}`)
+        .setTitle('Custom Selfbot Prompt');
+
+      const promptInput = new TextInputBuilder()
+        .setCustomId('sbrun_custom_prompt')
+        .setLabel('Optional prompt to apply to every reply')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setPlaceholder('Example: Be concise and avoid slang.')
+        .setMaxLength(1200);
+
+      const existingPrompt = (setupState.customPrompt || '').trim();
+      if (existingPrompt) {
+        promptInput.setValue(existingPrompt.slice(0, 1200));
       }
 
+      modal.addComponents(new ActionRowBuilder().addComponents(promptInput));
+      await interaction.showModal(modal);
+      return;
+    }
+
+    const startChannelId = parseSetupCustomId(interaction.customId, 'start');
+    if (startChannelId) {
       try {
         const token = getToken(interaction.user.id);
 
         if (!token) {
           await interaction.reply({
-            content: 'Token not found. Please use `/sbcreate` first.',
+            content: 'Token not found. Please use /sbcreate first.',
             flags: MessageFlags.Ephemeral,
           });
           return;
         }
 
+        const setupState = getSetupState(interaction.user.id, startChannelId);
+        const basePrompt = resolveBasePrompt(setupState);
         const result = startSelfbot(
           interaction.user.id,
           token,
-          channelId,
-          selectedModel,
+          startChannelId,
+          setupState.model,
           {
+            basePrompt,
             notify: (content) => sendUserDm(interaction.user.id, content),
             notifyError: (content) => sendCreatorLog(content),
             notifyCaptcha: (content) => sendUserDm(interaction.user.id, content),
@@ -116,6 +248,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
 
         if (result.success) {
+          clearSetupState(interaction.user.id, startChannelId);
           await interaction.reply({
             content: `✅ ${result.message}`,
             flags: MessageFlags.Ephemeral,
@@ -133,8 +266,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           flags: MessageFlags.Ephemeral,
         });
       }
+      return;
     }
-    return;
   }
 
   if (!interaction.isChatInputCommand()) {

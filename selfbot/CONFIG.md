@@ -42,6 +42,7 @@ The JavaScript bot passes these to the Python selfbot:
 - `CHANNEL_ID` - Target channel ID for the selfbot
 - `USER_ID` - ID of the user who started the bot
 - `LLM_MODEL` - Selected LLM model from `/sbrun`
+- `BASE_PROMPT` - Optional persistent instruction applied to every generation while the bot is running
 - `LLM_TIMEOUT_SECONDS` - Per-request timeout in seconds (default: `30`)
 
 ## Model Parameters
