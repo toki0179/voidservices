@@ -141,21 +141,17 @@ def generate_random_string(length=12):
 def init_seleniumbase_driver():
     """Initialize SeleniumBase driver with UC mode"""
     try:
-        # SeleniumBase Driver with undetected mode
+        # SeleniumBase Driver with undetected mode - using only valid arguments
         driver = Driver(
             browser="chrome",
             uc=True,  # Undetected Chrome mode
             headless=False,  # Use Xvfb instead of headless
-            headless2=False,  # Disable headless2 to avoid issues
             agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            disable_csp=True,
-            disable_automation=False,  # Keep some automation features
             no_sandbox=True,
             disable_gpu=True,
             window_size=(1920, 1080),
             incognito=False,
-            guest_mode=False,
-            devtools=False
+            guest_mode=False
         )
         
         # Set window size explicitly
