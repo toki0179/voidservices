@@ -274,7 +274,17 @@ def main():
             try:
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "captcha-iframe")))
                 print(f"{timestamp()} {Fore.YELLOW}CAPTCHA detected. Please solve it in the browser window.{Style.RESET_ALL}")
+                # Provide captcha iframe link for easier access to solve, as user may not have access to the browser window
+                captcha_iframe = driver.find_element(By.CLASS_NAME, "captcha-iframe")
+                captcha_src = captcha_iframe.get_attribute("src")
+                print(f"{timestamp()} {Fore.YELLOW}CAPTCHA URL: {captcha_src}{Style.RESET_ALL}")
+                # Wait for user to solve the captcha and for the URL to change to the Discord channels page
+                WebDriverWait(driver, 300).until(EC.url_contains("discord.com/channels/@me"))
+                print(f"{timestamp()} {Fore.GREEN}CAPTCHA solved and redirected to Discord page!{Style.RESET_ALL}")
             except TimeoutException:
+                # log current URL for debugging
+                current_url = driver.current_url
+                print(f"{timestamp()} {Fore.YELLOW}No CAPTCHA detected after waiting. Current URL: {current_url}{Style.RESET_ALL}")
                 print(f"{timestamp()} {Fore.GREEN}No CAPTCHA detected, proceeding...{Style.RESET_ALL}")
 
             # Wait for redirect to Discord channels
