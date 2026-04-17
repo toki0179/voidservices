@@ -5,6 +5,7 @@ import asyncio
 import sys
 import logging
 import json
+from importlib.metadata import PackageNotFoundError, version
 from concurrent.futures import ThreadPoolExecutor
 from ollamafreeapi import OllamaFreeAPI
 import discord
@@ -18,6 +19,16 @@ LLM_MODEL = os.getenv('LLM_MODEL', 'neural-chat')
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('selfbot')
+
+
+def verify_discord_py_self():
+    """Ensure the selfbot runtime is using discord.py-self distribution."""
+    try:
+        discord_self_version = version('discord.py-self')
+        logger.info(f'Using discord.py-self {discord_self_version}')
+    except PackageNotFoundError:
+        logger.error('discord.py-self is not installed. Install it in selfbot/requirements.txt.')
+        sys.exit(1)
 
 # Model to parameter mapping (optimized for humanlike + resource efficiency)
 MODEL_PARAMS = {
@@ -215,6 +226,8 @@ async def main():
     if not TOKEN:
         logger.error('Error: Missing DISCORD_TOKEN')
         sys.exit(1)
+
+    verify_discord_py_self()
     
     logger.info(f'Starting selfbot for user {USER_ID}')
     logger.info(f'Using model: {LLM_MODEL}')
