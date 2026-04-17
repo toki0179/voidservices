@@ -138,23 +138,28 @@ def generate_random_string(length=12):
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for i in range(length))
 
+from seleniumbase import Driver
+
 def init_seleniumbase_driver():
-    """Initialize SeleniumBase driver with UC mode"""
+    """Initialize SeleniumBase driver with UC mode using valid arguments"""
     try:
-        # SeleniumBase Driver with undetected mode - using only valid arguments
+        # Initialize the driver with UC (undetected) mode
+        # Using only valid arguments from the SeleniumBase documentation
         driver = Driver(
-            browser="chrome",
-            uc=True,  # Undetected Chrome mode
-            headless=False,  # Use Xvfb instead of headless
+            browser="chrome",          # Browser to use
+            uc=True,                   # Enable undetected mode
+            headless=False,            # Use Xvfb instead of headless
+            no_sandbox=True,           # Required for Docker (still accepted)
+            disable_gpu=True,          # Helps with rendering issues in Docker
             agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            no_sandbox=True,
-            disable_gpu=True,
-            window_size=(1920, 1080),
             incognito=False,
-            guest_mode=False
+            guest_mode=False,
+            disable_csp=None,          # Valid argument (None or boolean)
+            chromium_arg="--disable-dev-shm-usage,--disable-features=ChromeWhatsNewUI,TranslateUI",  # Pass Chrome args
+            binary_location="/usr/bin/google-chrome-stable"  # Explicit Chrome path
         )
         
-        # Set window size explicitly
+        # Set window size after driver initialization (SeleniumBase doesn't have a 'window_size' parameter)
         driver.set_window_size(1920, 1080)
         
         print(f"{timestamp()} {Fore.GREEN}SeleniumBase driver initialized successfully{Style.RESET_ALL}")
