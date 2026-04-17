@@ -57,7 +57,7 @@ class SelfCordBot(discord.Client):
         
     async def on_message(self, message):
         # Ignore messages from self
-        if message.author.id == self.user.id:
+        if self.user and message.author == self.user:
             return
             
         # Only respond in the target channel
@@ -72,42 +72,13 @@ class SelfCordBot(discord.Client):
             return
         
         try:
-            # Run message handling in thread pool to avoid blocking
-            await asyncio.get_event_loop().run_in_executor(
-                self.executor,
-                self._handle_message_sync,
-                message
-            )
+            await self._handle_message(message)
         except Exception as e:
             logger.error(f'Error handling message: {e}')
             try:
                 await message.reply(f'Error: {str(e)[:100]}')
             except:
                 pass
-    
-    def _handle_message_sync(self, message):
-        """Synchronous message handler to run in thread pool."""
-        # Add message to context
-        self.message_context.append({
-            'author': message.author.name,
-            'content': message.content
-        })
-        
-        # Keep only recent messages
-        if len(self.message_context) > self.max_context_messages:
-            self.message_context.pop(0)
-        
-        # Build context for LLM
-        context = '\n'.join([
-            f"{msg['author']}: {msg['content']}"
-            for msg in self.message_context[:-1]  # All except the current message
-        ])
-        
-        # Generate response
-        response = self._get_llm_response_sync(message.content, context)
-        
-        # Return for async sending
-        return message, response
     
     async def _handle_message(self, message):
         # Add message to context
@@ -216,10 +187,7 @@ async def main():
     logger.info(f'Starting selfbot for user {USER_ID}')
     logger.info(f'Using model: {LLM_MODEL}')
     
-    intents = discord.Intents.default()
-    intents.message_content = True
-    
-    bot = SelfCordBot(intents=intents)
+    bot = SelfCordBot()
     
     try:
         await bot.start(TOKEN)
