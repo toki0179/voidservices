@@ -178,6 +178,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
+    const dmChannelId = parseSetupCustomId(interaction.customId, 'dms');
+    if (dmChannelId) {
+      const setupState = getSetupState(interaction.user.id, dmChannelId);
+      const updatedState = {
+        ...setupState,
+        listenToDms: !setupState.listenToDms,
+      };
+      setSetupState(interaction.user.id, dmChannelId, updatedState);
+
+      await interaction.update(buildSbRunSetupUi(`<#${dmChannelId}>`, updatedState));
+      return;
+    }
+
     const presetChannelId = parseSetupCustomId(interaction.customId, 'preset');
     if (presetChannelId) {
       const setupState = getSetupState(interaction.user.id, presetChannelId);
@@ -241,6 +254,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           setupState.model,
           {
             basePrompt,
+            listenToDms: setupState.listenToDms,
             notify: (content) => sendUserDm(interaction.user.id, content),
             notifyError: (content) => sendCreatorLog(content),
             notifyCaptcha: (content) => sendUserDm(interaction.user.id, content),

@@ -20,6 +20,7 @@ LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
 BASE_PROMPT = (os.getenv('BASE_PROMPT', '') or '').strip()
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
 MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '1200'))
+LISTEN_TO_DMS = (os.getenv('LISTEN_TO_DMS', 'true').strip().lower() not in ('false', '0', 'no', 'off'))
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -83,6 +84,9 @@ class SelfCordBot(discord.Client):
             return
 
         is_dm = isinstance(message.channel, discord.DMChannel) or message.guild is None
+
+        if is_dm and not LISTEN_TO_DMS:
+            return
 
         # Respond in DMs, or in configured guild channel when provided.
         if not is_dm and self.target_channel_id and message.channel.id != self.target_channel_id:

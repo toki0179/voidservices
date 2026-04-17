@@ -57,6 +57,7 @@ export function getDefaultSbRunConfig() {
     model: LLM_MODELS[0]?.value ?? 'mistral:latest',
     preset: 'none',
     customPrompt: '',
+    listenToDms: true,
   };
 }
 
@@ -79,6 +80,7 @@ export function buildSbRunSetupUi(channelRef, config) {
   const selectedPreset = getSelectedPromptPreset(config.preset);
   const selectedPromptLabel = selectedPreset ? selectedPreset.label : 'No preset';
   const hasCustomPrompt = Boolean((config.customPrompt ?? '').trim());
+  const dmListeningLabel = config.listenToDms ? 'On' : 'Off';
 
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -88,6 +90,7 @@ export function buildSbRunSetupUi(channelRef, config) {
       { name: 'Model', value: config.model, inline: true },
       { name: 'Prompt Preset', value: selectedPromptLabel, inline: true },
       { name: 'Custom Prompt', value: hasCustomPrompt ? 'Configured' : 'Not set', inline: true },
+      { name: 'Listen to DMs', value: dmListeningLabel, inline: true },
     );
 
   const modelMenu = new StringSelectMenuBuilder()
@@ -121,6 +124,10 @@ export function buildSbRunSetupUi(channelRef, config) {
     ]);
 
   const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`sbrun:dms:${channelRef.replace(/\D/g, '')}`)
+      .setLabel(`DMs: ${dmListeningLabel}`)
+      .setStyle(config.listenToDms ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`sbrun:prompt:${channelRef.replace(/\D/g, '')}`)
       .setLabel('Set Custom Prompt')

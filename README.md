@@ -71,6 +71,7 @@ The selfbot feature allows Discord users to run AI chatbots in channels using th
    - Use `/sbrun` to open the setup menu and start a selfbot in any channel
    - Choose from 7 LLM models: llama3.2:3b, deepseek-r1:latest, gpt-oss:20b, mistral:latest, mistral-nemo:custom, bakllava:latest, smollm2:135m
    - Optionally select a preset prompt and/or add a custom prompt that is applied to every reply while the bot runs
+   - Optionally toggle DM listening on or off for that run
    - Use `/sbdelete` to remove their token when done
 
 ## Extending the bot

@@ -24,9 +24,10 @@ function resolvePythonCommand() {
 
 const activeBots = new Map();
 
-function buildStartupMessage({ userId, channelId, llmModel, hasBasePrompt }) {
+function buildStartupMessage({ userId, channelId, llmModel, hasBasePrompt, listenToDms }) {
   const promptSummary = hasBasePrompt ? ' Prompt mode: custom.' : ' Prompt mode: default.';
-  return `✅ Selfbot started for <@${userId}> in <#${channelId}> with model ${llmModel}.${promptSummary}`;
+  const dmSummary = listenToDms ? ' DM listening: on.' : ' DM listening: off.';
+  return `✅ Selfbot started for <@${userId}> in <#${channelId}> with model ${llmModel}.${promptSummary}${dmSummary}`;
 }
 
 function buildShutdownMessage({ userId, channelId, llmModel, code }) {
@@ -102,6 +103,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const notifyError = typeof options.notifyError === 'function' ? options.notifyError : null;
   const notifyCaptcha = typeof options.notifyCaptcha === 'function' ? options.notifyCaptcha : null;
   const basePrompt = typeof options.basePrompt === 'string' ? options.basePrompt.trim() : '';
+  const listenToDms = options.listenToDms !== false;
 
   try {
     const botProcess = spawn(pythonCommand, [pythonScript], {
@@ -112,6 +114,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
         USER_ID: userId,
         LLM_MODEL: llmModel,
         BASE_PROMPT: basePrompt,
+        LISTEN_TO_DMS: listenToDms ? 'true' : 'false',
       },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -208,7 +211,13 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
     });
 
     if (notify) {
-      notify(buildStartupMessage({ userId, channelId, llmModel, hasBasePrompt: Boolean(basePrompt) }));
+      notify(buildStartupMessage({
+        userId,
+        channelId,
+        llmModel,
+        hasBasePrompt: Boolean(basePrompt),
+        listenToDms,
+      }));
     }
 
     return {
