@@ -16,6 +16,7 @@ import { loadCommands } from './lib/commandLoader.js';
 import { registerCommands } from './lib/registerCommands.js';
 import { saveToken, getToken } from './lib/tokenDb.js';
 import { startSelfbot } from './lib/selfbotManager.js';
+import { startResidentialProxySyncJob } from './lib/proxySync.js';
 import {
   buildSbRunSetupUi,
   getDefaultSbRunConfig,
@@ -114,6 +115,8 @@ async function sendCreatorLog(content) {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+  startResidentialProxySyncJob();
+  console.log('Started residential proxy sync job (startup + daily).');
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

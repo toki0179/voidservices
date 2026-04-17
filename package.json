@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "check": "node --check src/index.js && node --check src/deploy-commands.js && node --check src/lib/registerCommands.js && node --check src/lib/renderParodyCard.js && node --check src/lib/tokenDb.js && node --check src/lib/selfbotManager.js && node --check src/lib/workerPool.js && node --check src/lib/renderWorker.js && node --check src/commands/ping.js && node --check src/commands/help.js && node --check src/commands/showcase.js && node --check src/commands/boost.js && node --check src/commands/sbcreate.js && node --check src/commands/sbrun.js && node --check src/commands/sbstop.js && node --check src/commands/sbdelete.js && node --check src/commands/proxies.js",
+    "check": "node --check src/index.js && node --check src/deploy-commands.js && node --check src/lib/registerCommands.js && node --check src/lib/renderParodyCard.js && node --check src/lib/tokenDb.js && node --check src/lib/selfbotManager.js && node --check src/lib/workerPool.js && node --check src/lib/renderWorker.js && node --check src/lib/proxyDb.js && node --check src/lib/proxySync.js && node --check src/commands/ping.js && node --check src/commands/help.js && node --check src/commands/showcase.js && node --check src/commands/boost.js && node --check src/commands/sbcreate.js && node --check src/commands/sbrun.js && node --check src/commands/sbstop.js && node --check src/commands/sbdelete.js && node --check src/commands/proxies.js",
     "docker:build": "./build.sh",
     "docker:up": "./deploy.sh",
     "docker:down": "docker compose down",
