@@ -47,6 +47,47 @@ function buildErrorMessage({ userId, channelId, llmModel, source, detail }) {
   ].join('\n');
 }
 
+function buildCaptchaMessage({ userId, channelId, llmModel, payload }) {
+  const source = payload?.source || 'unknown';
+  const details = payload?.details || {};
+  const author = details.author ? `Author: ${details.author}` : null;
+  const excerpt = details.content || details.error || details.prompt_excerpt || 'No details provided.';
+  const trimmedExcerpt = String(excerpt).slice(0, 1000);
+
+  return [
+    `⚠️ CAPTCHA signal detected for your selfbot in <#${channelId}> (model ${llmModel}).`,
+    `Source: ${source}`,
+    author,
+    `\`\`\`${trimmedExcerpt}\`\`\``,
+    'Please solve verification manually before continuing.',
+  ].filter(Boolean).join('\n');
+}
+
+function extractCaptchaEvents(text) {
+  const events = [];
+  const lines = String(text || '').split('\n');
+
+  for (const line of lines) {
+    const markerIndex = line.indexOf('CAPTCHA_EVENT::');
+    if (markerIndex === -1) {
+      continue;
+    }
+
+    const raw = line.slice(markerIndex + 'CAPTCHA_EVENT::'.length).trim();
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      events.push(JSON.parse(raw));
+    } catch {
+      // Ignore malformed event lines from child process output.
+    }
+  }
+
+  return events;
+}
+
 export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const botKey = `${userId}_${channelId}`;
 
@@ -58,6 +99,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
   const pythonCommand = resolvePythonCommand();
   const notify = typeof options.notify === 'function' ? options.notify : null;
   const notifyError = typeof options.notifyError === 'function' ? options.notifyError : null;
+  const notifyCaptcha = typeof options.notifyCaptcha === 'function' ? options.notifyCaptcha : null;
 
   try {
     const botProcess = spawn(pythonCommand, [pythonScript], {
@@ -74,6 +116,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
     let outputBuffer = '';
     let errorBuffer = '';
     let lastErrorNotification = 0;
+    let lastCaptchaNotification = 0;
 
     const maybeNotifyError = (source, detail) => {
       if (!notifyError) {
@@ -89,15 +132,39 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
       notifyError(buildErrorMessage({ userId, channelId, llmModel, source, detail }));
     };
 
+    const maybeNotifyCaptcha = (payload) => {
+      if (!notifyCaptcha) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastCaptchaNotification < 3000) {
+        return;
+      }
+
+      lastCaptchaNotification = now;
+      notifyCaptcha(buildCaptchaMessage({ userId, channelId, llmModel, payload }));
+    };
+
     botProcess.stdout.on('data', (data) => {
-      outputBuffer += data.toString();
-      console.log(`[Selfbot ${botKey}] ${data}`);
+      const text = data.toString();
+      outputBuffer += text;
+      console.log(`[Selfbot ${botKey}] ${text}`);
+
+      for (const event of extractCaptchaEvents(text)) {
+        maybeNotifyCaptcha(event);
+      }
     });
 
     botProcess.stderr.on('data', (data) => {
       const text = data.toString();
       errorBuffer += text;
       console.error(`[Selfbot ${botKey}] ERROR: ${text}`);
+
+      for (const event of extractCaptchaEvents(text)) {
+        maybeNotifyCaptcha(event);
+      }
+
       maybeNotifyError('stderr', text);
     });
 

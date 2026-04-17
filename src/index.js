@@ -111,6 +111,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           {
             notify: (content) => sendUserDm(interaction.user.id, content),
             notifyError: (content) => sendCreatorLog(content),
+            notifyCaptcha: (content) => sendUserDm(interaction.user.id, content),
           },
         );
 

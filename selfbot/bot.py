@@ -4,6 +4,7 @@ import os
 import asyncio
 import sys
 import logging
+import json
 from concurrent.futures import ThreadPoolExecutor
 from ollamafreeapi import OllamaFreeAPI
 import discord
@@ -26,6 +27,14 @@ MODEL_PARAMS = {
     'openhermes': {'temperature': 0.8, 'top_p': 0.9},
     'dolphin-mixtral': {'temperature': 0.75, 'top_p': 0.9},
 }
+
+CAPTCHA_KEYWORDS = (
+    'captcha',
+    'hcaptcha',
+    'recaptcha',
+    'verification required',
+    'solve the captcha',
+)
 
 class SelfCordBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -62,6 +71,14 @@ class SelfCordBot(discord.Client):
         # Ignore bot messages
         if message.author.bot:
             return
+
+        if self._contains_captcha_signal(message.content):
+            self._emit_captcha_event('incoming-message', {
+                'author': message.author.name,
+                'content': message.content,
+                'channel_id': getattr(message.channel, 'id', None),
+                'is_dm': message.guild is None,
+            })
         
         if not self.running:
             return
@@ -70,6 +87,11 @@ class SelfCordBot(discord.Client):
             await self._handle_message(message)
         except Exception as e:
             logger.error(f'Error handling message: {e}')
+            if self._contains_captcha_signal(str(e)):
+                self._emit_captcha_event('message-handler-error', {
+                    'error': str(e),
+                    'channel_id': getattr(message.channel, 'id', None),
+                })
             try:
                 await message.reply(f'Error: {str(e)[:100]}')
             except:
@@ -131,7 +153,31 @@ class SelfCordBot(discord.Client):
             return response.strip() if response else "No response from LLM"
         except Exception as e:
             logger.error(f'LLM API error: {e}')
+            if self._contains_captcha_signal(str(e)):
+                self._emit_captcha_event('llm-api-error', {
+                    'error': str(e),
+                    'prompt_excerpt': (prompt or '')[:300],
+                })
             return f"I couldn't generate a response right now."
+
+    @staticmethod
+    def _contains_captcha_signal(text):
+        if not text:
+            return False
+        lowered = text.lower()
+        return any(keyword in lowered for keyword in CAPTCHA_KEYWORDS)
+
+    def _emit_captcha_event(self, source, details):
+        payload = {
+            'event': 'captcha_detected',
+            'source': source,
+            'user_id': USER_ID,
+            'channel_id': self.target_channel_id,
+            'details': details,
+        }
+        # Structured stderr marker consumed by the Node.js manager for DM forwarding.
+        sys.stderr.write(f"CAPTCHA_EVENT::{json.dumps(payload, ensure_ascii=True)}\n")
+        sys.stderr.flush()
     
     async def shutdown(self):
         """Graceful shutdown with logging."""
