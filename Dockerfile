@@ -44,16 +44,22 @@ RUN apt-get update \
         libgbm1 \
     && rm -rf /var/lib/apt/lists/
 
-# Download and install Chromium 120.0.6099.224 from debian-security snapshot
-RUN wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium_120.0.6099.224-1~deb12u1_amd64.deb" -O /tmp/chromium.deb \
-    && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-common_120.0.6099.224-1~deb12u1_amd64.deb" -O /tmp/chromium-common.deb \
-    && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-driver_120.0.6099.224-1~deb12u1_amd64.deb" -O /tmp/chromium-driver.deb \
-    && dpkg -i /tmp/chromium*.deb 2>/dev/null || true \
-    && apt-get install -f -y \
-    && rm /tmp/*.deb
+# Install Chromium v120 with architecture-aware snapshot packages
+RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
+        wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium.deb \
+        && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-common_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-common.deb \
+        && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-driver_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-driver.deb \
+        && dpkg -i /tmp/chromium*.deb \
+        && apt-get update \
+        && apt-get install -f -y; \
+    else \
+        echo "Unsupported TARGETARCH for pinned Chromium v120: ${TARGETARCH}" \
+        && exit 1; \
+    fi \
+    && rm -rf /var/lib/apt/lists/* /tmp/*.deb
 
 # Verify Chromium installation
-RUN chromium --version
+RUN chromium --version || chromium-browser --version
     
 # Install production dependencies directly in target image/arch
 COPY package.json package-lock.json ./
