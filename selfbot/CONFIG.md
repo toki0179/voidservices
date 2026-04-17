@@ -45,6 +45,7 @@ The JavaScript bot passes these to the Python selfbot:
 - `BASE_PROMPT` - Optional persistent instruction applied to every generation while the bot is running
 - `LISTEN_TO_DMS` - Whether the selfbot should respond in DMs during the run (`true` by default)
 - `LLM_TIMEOUT_SECONDS` - Per-request timeout in seconds (default: `30`)
+- `MAX_CONTEXT_CHARS` - Maximum amount of conversation context passed into a reply (default: `5000`)
 
 The runtime always prepends a fixed force prompt before any preset or custom prompt so replies stay short and normal chat-length.
 

@@ -73,6 +73,7 @@ The selfbot feature allows Discord users to run AI chatbots in channels using th
    - Optionally select a preset prompt and/or add a custom prompt that is applied to every reply while the bot runs
    - The runtime always prepends a force prompt so replies stay normal chat length
    - Optionally toggle DM listening on or off for that run
+   - The selfbot keeps up to 5000 characters of conversation context by default
    - Use `/sbdelete` to remove their token when done
 
 ## Extending the bot

@@ -20,7 +20,7 @@ LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
 BASE_PROMPT = (os.getenv('BASE_PROMPT', '') or '').strip()
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
 LLM_SERVER_TIMEOUT_SECONDS = float(os.getenv('LLM_SERVER_TIMEOUT_SECONDS', '10'))
-MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '1200'))
+MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '5000'))
 LISTEN_TO_DMS = (os.getenv('LISTEN_TO_DMS', 'true').strip().lower() not in ('false', '0', 'no', 'off'))
 FORCE_PROMPT = (
     'Keep every reply to a normal Discord message length: concise, direct, and usually under 3 short sentences. '
