@@ -19,6 +19,7 @@ USER_ID = int(os.getenv('USER_ID', 0))
 LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
 BASE_PROMPT = (os.getenv('BASE_PROMPT', '') or '').strip()
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
+LLM_SERVER_TIMEOUT_SECONDS = float(os.getenv('LLM_SERVER_TIMEOUT_SECONDS', '10'))
 MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '1200'))
 LISTEN_TO_DMS = (os.getenv('LISTEN_TO_DMS', 'true').strip().lower() not in ('false', '0', 'no', 'off'))
 FORCE_PROMPT = (
@@ -44,13 +45,13 @@ def verify_discord_py_self():
 
 # Model to parameter mapping (optimized for humanlike + resource efficiency)
 MODEL_PARAMS = {
-    'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9},
-    'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9},
-    'gpt-oss:20b': {'temperature': 0.7, 'top_p': 0.9},
-    'mistral:latest': {'temperature': 0.7, 'top_p': 0.95},
-    'mistral-nemo:custom': {'temperature': 0.7, 'top_p': 0.9},
-    'bakllava:latest': {'temperature': 0.7, 'top_p': 0.9},
-    'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9},
+    'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+    'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9, 'num_predict': 64},
+    'gpt-oss:20b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+    'mistral:latest': {'temperature': 0.7, 'top_p': 0.95, 'num_predict': 64},
+    'mistral-nemo:custom': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+    'bakllava:latest': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+    'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
 }
 
 CAPTCHA_KEYWORDS = (
@@ -245,7 +246,7 @@ class SelfCordBot(discord.Client):
                 if not url:
                     continue
                 try:
-                    client = OllamaClient(host=url, timeout=LLM_TIMEOUT_SECONDS)
+                    client = OllamaClient(host=url, timeout=LLM_SERVER_TIMEOUT_SECONDS)
                     response = client.generate(**request)
                     text = getattr(response, 'response', None)
                     if not text and isinstance(response, dict):
