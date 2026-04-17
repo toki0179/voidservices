@@ -287,6 +287,9 @@ def main():
                 print(f"{timestamp()} {Fore.YELLOW}No CAPTCHA detected after waiting. Current URL: {current_url}{Style.RESET_ALL}")
                 print(f"{timestamp()} {Fore.GREEN}No CAPTCHA detected, proceeding...{Style.RESET_ALL}")
 
+            # Submit form and wait for redirect to Discord channels
+            WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]'))).click()
+
             # Wait for redirect to Discord channels
             WebDriverWait(driver, 300).until(EC.url_contains("discord.com/channels/@me"))
             print(f"{timestamp()} {Fore.GREEN}Redirected to Discord page!{Style.RESET_ALL}")
