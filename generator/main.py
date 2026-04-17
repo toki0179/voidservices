@@ -201,7 +201,7 @@ def main():
             options.add_argument('--disable-gpu')
             options.add_argument('--window-size=1920,1080')
             try:
-                driver = uc.Chrome(options=options)
+                driver = uc.Chrome(options=options, use_subprocess=True)
             except Exception as chrome_error:
                 print(f"{timestamp()} {Fore.RED}Failed to initialize Chrome/undetected_chromedriver: {str(chrome_error)[:200]}{Style.RESET_ALL}")
                 print(f"{timestamp()} {Fore.YELLOW}Ensure Chromium/Chrome is installed on the system.{Style.RESET_ALL}")
