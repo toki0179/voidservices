@@ -46,9 +46,10 @@ RUN apt-get update \
 
 # Install Chromium v120 with architecture-aware snapshot packages
 RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
-        wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium.deb \
-        && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-common_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-common.deb \
-        && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-driver_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-driver.deb \
+    wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium.deb \
+    && wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium-common_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-common.deb \
+    && wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium-driver_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-driver.deb \
+    && wget -q "https://snapshot.debian.org/archive/debian/20240121T032514Z/pool/main/c/chromium/chromium-sandbox_120.0.6099.224-1~deb12u1_${TARGETARCH}.deb" -O /tmp/chromium-sandbox.deb \
         && dpkg -i /tmp/chromium*.deb \
         && apt-get update \
         && apt-get install -f -y; \
