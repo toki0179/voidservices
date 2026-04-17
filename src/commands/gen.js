@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { AttachmentBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -108,11 +108,20 @@ function runPython(numberValue) {
 
       finished = true;
       clearTimeout(timeout);
+
+      // Parse GENERATED_FILE from stdout if present
+      let generatedFile = null;
+      const fileMatch = stdout.match(/GENERATED_FILE:(.+)/);
+      if (fileMatch && fileMatch[1]) {
+        generatedFile = fileMatch[1].trim();
+      }
+
       resolve({
         code,
         signal,
         stdout: trimOutput(stdout),
         stderr: trimOutput(stderr),
+        generatedFile,
       });
     });
   });
@@ -150,6 +159,28 @@ export default {
         return;
       }
 
+      // If a credentials file was generated, send it as attachment
+      if (result.generatedFile && existsSync(result.generatedFile)) {
+        try {
+          const filePath = path.join(projectRoot, result.generatedFile);
+          const fileContent = readFileSync(filePath, 'utf-8');
+          const attachment = new AttachmentBuilder(Buffer.from(fileContent), {
+            name: path.basename(result.generatedFile),
+          });
+
+          await interaction.editReply({
+            content: `✅ Generation complete with ${numberValue} iterations. Credentials file sent below:`,
+            files: [attachment],
+          });
+        } catch (fileError) {
+          await interaction.editReply(
+            `Generated file path found (${result.generatedFile}) but failed to read it: ${fileError.message}`,
+          );
+        }
+        return;
+      }
+
+      // Fallback: send normal output
       await interaction.editReply(
         [
           `Started Python file successfully with number: ${numberValue}.`,
