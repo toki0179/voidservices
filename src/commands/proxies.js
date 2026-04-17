@@ -6,15 +6,16 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tempDir = path.join(__dirname, '..', '.tmp');
 
-// Common public proxy list sources
-const PROXY_SOURCES = [
-  'https://www.proxy-list.download/api/v1/get?type=http',
+// Residential proxy list sources (ISP/datacenter residential proxies)
+const RESIDENTIAL_PROXY_SOURCES = [
   'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
   'https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt',
+  'https://raw.githubusercontent.com/opsxcq/proxy-list/master/list.txt',
+  'https://www.proxy-list.download/api/v1/get?type=http',
 ];
 
 const TIMEOUT_MS = 5000;
-const MAX_PROXIES_TO_FETCH = 50; // Limit to prevent long processing
+const MAX_PROXIES_TO_FETCH = 100; // Limit to prevent long processing
 
 async function fetchProxiesBySource(sourceUrl) {
   try {
@@ -61,8 +62,8 @@ async function testProxy(proxy) {
 async function getAndCheckProxies() {
   const allProxies = new Set();
 
-  // Fetch from all sources
-  for (const source of PROXY_SOURCES) {
+  // Fetch from all residential sources
+  for (const source of RESIDENTIAL_PROXY_SOURCES) {
     const proxies = await fetchProxiesBySource(source);
     proxies.forEach(p => allProxies.add(p));
   }
@@ -92,26 +93,26 @@ export default {
       // Ensure temp directory exists
       await fs.mkdir(tempDir, { recursive: true });
 
-      await interaction.editReply('🔍 Fetching proxies from public lists...');
+      await interaction.editReply('🔍 Fetching residential proxies from public lists...');
       const validProxies = await getAndCheckProxies();
 
       if (validProxies.length === 0) {
-        await interaction.editReply('❌ No valid proxies found from public lists.');
+        await interaction.editReply('❌ No valid residential proxies found from public lists.');
         return;
       }
 
       // Create temporary file
-      const filePath = path.join(tempDir, `proxies_${Date.now()}.txt`);
+      const filePath = path.join(tempDir, `residential_proxies_${Date.now()}.txt`);
       const content = validProxies.join('\n');
       await fs.writeFile(filePath, content, 'utf-8');
 
       // Create attachment and send
       const attachment = new AttachmentBuilder(filePath, {
-        name: `proxies_${validProxies.length}.txt`,
+        name: `residential_proxies_${validProxies.length}.txt`,
       });
 
       await interaction.editReply({
-        content: `✅ Found and validated **${validProxies.length}** proxies.`,
+        content: `✅ Found and validated **${validProxies.length}** residential proxies.`,
         files: [attachment],
       });
 
