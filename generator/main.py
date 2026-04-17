@@ -268,8 +268,15 @@ def main():
                 print(f'{timestamp()}{Fore.RED}[INFO] Ratelimited for {limit} seconds. Waiting...{Style.RESET_ALL}')
                 time.sleep(limit)
             continue_button.click()
+
             print(f"{timestamp()} {Fore.BLUE}Form submitted. Waiting for CAPTCHA or redirect...{Style.RESET_ALL}")
-            
+            # log the captcha presence and provide link to solve it
+            try:
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "captcha-iframe")))
+                print(f"{timestamp()} {Fore.YELLOW}CAPTCHA detected. Please solve it in the browser window.{Style.RESET_ALL}")
+            except TimeoutException:
+                print(f"{timestamp()} {Fore.GREEN}No CAPTCHA detected, proceeding...{Style.RESET_ALL}")
+
             # Wait for redirect to Discord channels
             WebDriverWait(driver, 300).until(EC.url_contains("discord.com/channels/@me"))
             print(f"{timestamp()} {Fore.GREEN}Redirected to Discord page!{Style.RESET_ALL}")
