@@ -250,24 +250,15 @@ def main():
 
             # ---------- Submit button with multiple strategies ----------
             submit_button = None
-            # Strategy 1: by type="submit"
-            try:
-                submit_button = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
-                )
-                print(f"{timestamp()} {Fore.GREEN}Found submit button by type='submit'{Style.RESET_ALL}")
-            except TimeoutException:
-                pass
 
             # Strategy 2: by the specific wrapper class you mentioned
-            if not submit_button:
-                try:
-                    submit_button = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.CLASS_NAME, "buttonChildrenWrapper_a22cb0"))
-                    )
-                    print(f"{timestamp()} {Fore.GREEN}Found submit button by class buttonChildrenWrapper_a22cb0{Style.RESET_ALL}")
-                except TimeoutException:
-                    pass
+            try:
+                submit_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.CLASS_NAME, "buttonChildrenWrapper_a22cb0"))
+                )
+                print(f"{timestamp()} {Fore.GREEN}Found submit button by class buttonChildrenWrapper_a22cb0{Style.RESET_ALL}")
+            except TimeoutException:
+                pass
 
             # Strategy 3: by aria-label or other attributes
             if not submit_button:
