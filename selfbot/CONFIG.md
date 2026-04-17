@@ -46,6 +46,8 @@ The JavaScript bot passes these to the Python selfbot:
 - `LISTEN_TO_DMS` - Whether the selfbot should respond in DMs during the run (`true` by default)
 - `LLM_TIMEOUT_SECONDS` - Per-request timeout in seconds (default: `30`)
 
+The runtime always prepends a fixed force prompt before any preset or custom prompt so replies stay short and normal chat-length.
+
 ## Model Parameters
 
 Each model has tuned hyperparameters for optimal performance:

@@ -21,6 +21,10 @@ BASE_PROMPT = (os.getenv('BASE_PROMPT', '') or '').strip()
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
 MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '1200'))
 LISTEN_TO_DMS = (os.getenv('LISTEN_TO_DMS', 'true').strip().lower() not in ('false', '0', 'no', 'off'))
+FORCE_PROMPT = (
+    'Keep every reply to a normal Discord message length: concise, direct, and usually under 3 short sentences. '
+    'Avoid bullet lists, long explanations, and essay-style responses unless the user explicitly asks for detail.'
+)
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -215,6 +219,7 @@ class SelfCordBot(discord.Client):
             params = MODEL_PARAMS.get(LLM_MODEL, {})
 
             sections = []
+            sections.append(f"Forced instructions:\n{FORCE_PROMPT}")
             if BASE_PROMPT:
                 sections.append(f"System instructions:\n{BASE_PROMPT}")
             if context:

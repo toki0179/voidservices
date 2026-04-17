@@ -49,6 +49,26 @@ function buildErrorMessage({ userId, channelId, llmModel, source, detail }) {
   ].join('\n');
 }
 
+function buildCriticalErrorMessage({ userId, channelId, llmModel, detail, kind }) {
+  const truncated = (detail || '').trim().slice(0, 1800) || 'No details available.';
+  return [
+    `🚨 Critical selfbot LLM error for <@${userId}> in <#${channelId}> with model ${llmModel}.`,
+    `Type: ${kind}`,
+    `\`\`\`${truncated}\`\`\``,
+  ].join('\n');
+}
+
+function isImportantLlmError(text) {
+  const lowered = String(text || '').toLowerCase();
+  return (
+    lowered.includes('llm api error') ||
+    lowered.includes('all servers failed for model') ||
+    lowered.includes('timed out') ||
+    lowered.includes('no servers available for model') ||
+    lowered.includes('connection error')
+  );
+}
+
 function buildCaptchaMessage({ userId, channelId, llmModel, payload }) {
   const source = payload?.source || 'unknown';
   const details = payload?.details || {};
@@ -122,6 +142,7 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
     let outputBuffer = '';
     let errorBuffer = '';
     let lastErrorNotification = 0;
+    let lastCriticalErrorNotification = 0;
     let lastCaptchaNotification = 0;
 
     const maybeNotifyError = (source, detail) => {
@@ -136,6 +157,20 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
 
       lastErrorNotification = now;
       notifyError(buildErrorMessage({ userId, channelId, llmModel, source, detail }));
+    };
+
+    const maybeNotifyCriticalError = (kind, detail) => {
+      if (!notifyError) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastCriticalErrorNotification < 1500) {
+        return;
+      }
+
+      lastCriticalErrorNotification = now;
+      notifyError(buildCriticalErrorMessage({ userId, channelId, llmModel, kind, detail }));
     };
 
     const maybeNotifyCaptcha = (payload) => {
@@ -172,6 +207,9 @@ export function startSelfbot(userId, token, channelId, llmModel, options = {}) {
       }
 
       maybeNotifyError('stderr', text);
+      if (isImportantLlmError(text)) {
+        maybeNotifyCriticalError('llm-timeout-or-server-failure', text);
+      }
     });
 
     botProcess.on('close', (code) => {
