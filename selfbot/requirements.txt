@@ -1,2 +1,2 @@
-selfcord
+discord.py-self
 ollamafreeapi

@@ -6,7 +6,7 @@ import sys
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from ollamafreeapi import OllamaFreeAPI
-from selfcord import Client, Intents
+import discord
 
 # Configuration from environment
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -28,7 +28,7 @@ MODEL_PARAMS = {
     'dolphin-mixtral': {'temperature': 0.75, 'top_p': 0.9},
 }
 
-class SelfCordBot(Client):
+class SelfCordBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.target_channel_id = CHANNEL_ID
@@ -216,7 +216,7 @@ async def main():
     logger.info(f'Starting selfbot for user {USER_ID}')
     logger.info(f'Using model: {LLM_MODEL}')
     
-    intents = Intents.default()
+    intents = discord.Intents.default()
     intents.message_content = True
     
     bot = SelfCordBot(intents=intents)

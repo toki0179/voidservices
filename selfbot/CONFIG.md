@@ -5,7 +5,7 @@ This directory contains the Discord selfbot implementation using discord.py-self
 ## Requirements
 
 - Python 3.9+
-- discord.py-self (`selfcord`)
+- discord.py-self (`import discord`)
 - httpx (for LLM API calls)
 
 ## Installation
