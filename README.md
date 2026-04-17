@@ -14,6 +14,7 @@ A modern Discord.js v14 bot scaffold built around slash commands and a modular c
 
 - `/ping` checks latency and bot responsiveness
 - `/help` lists available commands or explains one command
+- `/gen` runs a configured Python file with a required numeric input
 - `/showcase` creates a branded V0iD demo card embed that can be replaced with richer rendering later
 - `/boost` renders a Nitro-style proof card with the executor shown on the first line and a response identity chosen from a supplied user ID or randomized fallback on the second line
 - `/sbcreate` registers a Discord selfbot token (via secure modal popup)
@@ -75,6 +76,19 @@ The selfbot feature allows Discord users to run AI chatbots in channels using th
    - Optionally toggle DM listening on or off for that run
    - The selfbot keeps up to 5000 characters of conversation context by default
    - Use `/sbdelete` to remove their token when done
+
+### Generator Setup (Optional)
+
+The `/gen` command runs `generator/main.py` and forwards the slash command number input as both a CLI argument and `GEN_NUMBER` environment variable.
+
+1. Install generator dependencies:
+   ```bash
+   pip install -r generator/requirements.txt
+   ```
+
+2. Optionally override runtime defaults:
+   - `GEN_SCRIPT` to point to a different Python script path
+   - `GEN_PYTHON` to point to a specific Python executable
 
 ## Extending the bot
 

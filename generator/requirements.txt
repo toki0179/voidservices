@@ -1,0 +1,7 @@
+undetected-chromedriver
+selenium
+colorama
+fake-useragent
+pystyle
+requests
+tls-client

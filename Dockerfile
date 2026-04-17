@@ -34,9 +34,11 @@ RUN npm ci --only=production \
 # Copy application code
 COPY . .
 
-# Create isolated Python environment for selfbot dependencies
+# Create isolated Python environments for selfbot and generator dependencies
 RUN python3 -m venv /opt/selfbot-venv \
-    && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt \
+    && python3 -m venv /opt/generator-venv \
+    && /opt/generator-venv/bin/pip install --no-cache-dir -r /app/generator/requirements.txt
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data /app/logs
@@ -48,6 +50,7 @@ VOLUME ["/app/data", "/app/logs"]
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     SELFBOT_PYTHON=/opt/selfbot-venv/bin/python \
+    GEN_PYTHON=/opt/generator-venv/bin/python \
     NODE_ENV=production
 
 # Set architecture label
