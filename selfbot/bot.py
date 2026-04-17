@@ -5,9 +5,11 @@ import asyncio
 import sys
 import logging
 import json
+import random
 from importlib.metadata import PackageNotFoundError, version
 from concurrent.futures import ThreadPoolExecutor
 from ollamafreeapi import OllamaFreeAPI
+from ollama import Client as OllamaClient
 import discord
 
 # Configuration from environment
@@ -16,6 +18,7 @@ CHANNEL_ID = int(os.getenv('CHANNEL_ID', 0))
 USER_ID = int(os.getenv('USER_ID', 0))
 LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
+MAX_CONTEXT_CHARS = int(os.getenv('MAX_CONTEXT_CHARS', '1200'))
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +63,7 @@ class SelfCordBot(discord.Client):
         self.max_context_messages = 5
         self.llm_client = OllamaFreeAPI()
         self._available_models = None
+        self._preferred_server = {}
         self.running = True
         # ThreadPoolExecutor for concurrent message processing
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -130,6 +134,8 @@ class SelfCordBot(discord.Client):
             f"{msg['author']}: {msg['content']}"
             for msg in self.message_context[:-1]  # All except the current message
         ])
+        if len(context) > MAX_CONTEXT_CHARS:
+            context = context[-MAX_CONTEXT_CHARS:]
         
         # Show typing indicator
         async with message.channel.typing():
@@ -205,16 +211,37 @@ class SelfCordBot(discord.Client):
 
             full_prompt = f"{context}\n\n{prompt}" if context else prompt
             resolved_model = self._resolve_model_name(LLM_MODEL)
-            response = self.llm_client.chat(
-                model=resolved_model,
-                prompt=full_prompt,
-                **params,
-            )
+            servers = self.llm_client.get_model_servers(resolved_model)
+            if not servers:
+                raise RuntimeError(f"No servers available for model '{resolved_model}'")
 
-            text = response
-            if not text:
-                raise RuntimeError('Empty response body from OllamaFreeAPI')
-            return text.strip()
+            random.shuffle(servers)
+            preferred_url = self._preferred_server.get(resolved_model)
+            if preferred_url:
+                servers.sort(key=lambda server: server.get('url') != preferred_url)
+
+            request = self.llm_client.generate_api_request(resolved_model, full_prompt, **params)
+            request['stream'] = False
+
+            last_error = None
+            for server in servers:
+                url = server.get('url')
+                if not url:
+                    continue
+                try:
+                    client = OllamaClient(host=url, timeout=LLM_TIMEOUT_SECONDS)
+                    response = client.generate(**request)
+                    text = getattr(response, 'response', None)
+                    if not text and isinstance(response, dict):
+                        text = response.get('response')
+                    if text:
+                        self._preferred_server[resolved_model] = url
+                        return text.strip()
+                    last_error = RuntimeError('Empty response body from upstream server')
+                except Exception as server_error:
+                    last_error = server_error
+
+            raise RuntimeError(f"All servers failed for model '{resolved_model}'. Last error: {last_error}")
         except Exception as e:
             logger.error(f'LLM API error: {e}')
             if 'No servers available for model' in str(e):
