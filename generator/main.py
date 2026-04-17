@@ -201,7 +201,6 @@ def main():
                 print(f"{timestamp()} {Fore.RED}Failed to initialize driver. Skipping iteration.{Style.RESET_ALL}")
                 continue
 
-            # Go to Discord registration
             driver.get("https://discord.com/register")
             WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, "email")))
             driver.find_element(By.NAME, "email").send_keys(email)
@@ -211,7 +210,6 @@ def main():
             password_value = email
             driver.find_element(By.NAME, "password").send_keys(password_value)
 
-            # Date of birth using ActionChains
             print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
             actions = ActionChains(driver)
             actions.send_keys(Keys.TAB)
@@ -236,7 +234,6 @@ def main():
                 actions.send_keys(Keys.ENTER)
                 actions.perform()
 
-            # Checkboxes
             try:
                 checkboxes = WebDriverWait(driver, 10).until(
                     EC.presence_of_all_elements_located((By.XPATH, "//input[@type='checkbox']"))
@@ -251,19 +248,61 @@ def main():
             except Exception as e:
                 print(f"{timestamp()} {Fore.RED}Error handling checkboxes: {e}{Style.RESET_ALL}")
 
-            # Submit button
-            continue_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]')))
+            # ---------- Submit button with multiple strategies ----------
+            submit_button = None
+            # Strategy 1: by type="submit"
+            try:
+                submit_button = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
+                )
+                print(f"{timestamp()} {Fore.GREEN}Found submit button by type='submit'{Style.RESET_ALL}")
+            except TimeoutException:
+                pass
+
+            # Strategy 2: by the specific wrapper class you mentioned
+            if not submit_button:
+                try:
+                    submit_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.CLASS_NAME, "buttonChildrenWrapper_a22cb0"))
+                    )
+                    print(f"{timestamp()} {Fore.GREEN}Found submit button by class buttonChildrenWrapper_a22cb0{Style.RESET_ALL}")
+                except TimeoutException:
+                    pass
+
+            # Strategy 3: by aria-label or other attributes
+            if not submit_button:
+                try:
+                    submit_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(@aria-label, 'Submit')]"))
+                    )
+                    print(f"{timestamp()} {Fore.GREEN}Found submit button by aria-label{Style.RESET_ALL}")
+                except TimeoutException:
+                    pass
+
+            # Strategy 4: by any button inside the form that looks like submit
+            if not submit_button:
+                try:
+                    submit_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "form button[type='submit'], form button:last-child"))
+                    )
+                    print(f"{timestamp()} {Fore.GREEN}Found submit button by CSS selector{Style.RESET_ALL}")
+                except TimeoutException:
+                    pass
+
+            if not submit_button:
+                raise Exception("Could not find submit button using any strategy")
+
             limit = account_ratelimit()
             if limit > 1:
                 print(f'{timestamp()}{Fore.RED}[INFO] Ratelimited for {limit} seconds. Waiting...{Style.RESET_ALL}')
                 time.sleep(limit)
-            continue_button.click()
+
+            driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
+            time.sleep(0.5)
+            submit_button.click()
             print(f"{timestamp()} {Fore.BLUE}Form submitted. Waiting briefly for processing...{Style.RESET_ALL}")
 
-            # Give Discord a few seconds to create the account
             time.sleep(5)
-
-            # Close the browser – we'll fetch token via API
             driver.quit()
             driver = None
 
