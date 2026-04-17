@@ -19,8 +19,6 @@ RUN apt-get update \
         python3-pip \
         make \
         g++ \
-        chromium \
-        chromium-driver \
         ca-certificates \
         fonts-freefont-ttf \
         fonts-noto \
@@ -44,8 +42,19 @@ RUN apt-get update \
         libatk-bridge2.0-0 \
         libgtk-3-0 \
         libgbm1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/
 
+# Download and install Chromium 120.0.6099.224 from debian-security snapshot
+RUN wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium_120.0.6099.224-1~deb12u1_amd64.deb" -O /tmp/chromium.deb \
+    && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-common_120.0.6099.224-1~deb12u1_amd64.deb" -O /tmp/chromium-common.deb \
+    && wget -q "https://snapshot.debian.org/archive/debian-security/20240118T015549Z/pool/updates/main/c/chromium/chromium-driver_120.0.6099.224-1~deb12u1_amd64.deb" -O /tmp/chromium-driver.deb \
+    && dpkg -i /tmp/chromium*.deb 2>/dev/null || true \
+    && apt-get install -f -y \
+    && rm /tmp/*.deb
+
+# Verify Chromium installation
+RUN chromium --version
+    
 # Install production dependencies directly in target image/arch
 COPY package.json package-lock.json ./
 RUN npm ci --only=production \
