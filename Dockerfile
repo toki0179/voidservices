@@ -16,14 +16,34 @@ RUN apt-get update \
         dumb-init \
         python3 \
         python3-venv \
+        python3-pip \
         make \
         g++ \
         chromium \
+        chromium-driver \
         ca-certificates \
         fonts-freefont-ttf \
         fonts-noto \
         fonts-noto-cjk \
         fonts-noto-color-emoji \
+        xvfb \
+        wget \
+        gnupg \
+        libx11-6 \
+        libxcb1 \
+        libxcomposite1 \
+        libxcursor1 \
+        libxdamage1 \
+        libxi6 \
+        libxtst6 \
+        libnss3 \
+        libcups2 \
+        libxss1 \
+        libxrandr2 \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libgtk-3-0 \
+        libgbm1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install production dependencies directly in target image/arch
@@ -38,10 +58,22 @@ COPY . .
 RUN python3 -m venv /opt/selfbot-venv \
     && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt \
     && python3 -m venv /opt/generator-venv \
-    && /opt/generator-venv/bin/pip install --no-cache-dir -r /app/generator/requirements.txt
+    && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/generator-venv/bin/pip install --no-cache-dir \
+        undetected-chromedriver \
+        selenium \
+        requests \
+        colorama \
+        pystyle \
+        fake_useragent \
+        tls-client \
+        websocket-client \
+        pydirectinput \
+        pyautogui \
+        'setuptools<70.0.0'
 
 # Create data directory for SQLite database
-RUN mkdir -p /app/data /app/logs
+RUN mkdir -p /app/data /app/logs /app/data/generated
 
 # Persist runtime state across container/image updates
 VOLUME ["/app/data", "/app/logs"]
@@ -53,16 +85,28 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     CHROMIUM_BIN=/usr/bin/chromium \
     SELFBOT_PYTHON=/opt/selfbot-venv/bin/python \
     GEN_PYTHON=/opt/generator-venv/bin/python \
-    NODE_ENV=production
+    NODE_ENV=production \
+    DISPLAY=:99 \
+    XVFB_ARGS=":99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset"
 
 # Set architecture label
 LABEL org.opencontainers.image.architecture="${TARGETARCH}${TARGETVARIANT}"
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+# Start Xvfb\n\
+Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &\n\
+XVFB_PID=$!\n\
+# Wait for Xvfb to start\n\
+sleep 2\n\
+# Start the main application\n\
+npm start\n\
+# Cleanup on exit\n\
+kill $XVFB_PID\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
 
-# Start the bot
-CMD ["npm", "start"]
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--", "/entrypoint.sh"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
