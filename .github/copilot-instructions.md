@@ -4,3 +4,4 @@
 - Prefer slash commands and feature modules over prefix commands.
 - Keep new commands safe, clearly labeled, and easy to extend.
 - Keep the README and setup steps aligned with the current command set.
+- Push updates to the github, and build and push docker container when updated.
