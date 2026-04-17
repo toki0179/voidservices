@@ -168,7 +168,32 @@ def main():
                 print(f"{timestamp()} {Fore.RED}undetected_chromedriver is not available. Skipping browser automation for iteration {index + 1}.{Style.RESET_ALL}")
                 continue
             
+            # Resolve Chrome/Chromium binary path
+            chrome_paths = [
+                os.getenv('CHROME_BIN'),
+                os.getenv('CHROMIUM_BIN'),
+                '/usr/bin/chromium',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/google-chrome',
+                '/usr/bin/google-chrome-stable',
+                '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            ]
+            
+            chrome_bin = None
+            for path in chrome_paths:
+                if path and os.path.exists(path):
+                    chrome_bin = path
+                    print(f"{timestamp()} {Fore.GREEN}Found Chrome at: {chrome_bin}{Style.RESET_ALL}")
+                    break
+            
+            if not chrome_bin:
+                print(f"{timestamp()} {Fore.RED}Chrome/Chromium not found at any known path. Skipping iteration {index + 1}.{Style.RESET_ALL}")
+                continue
+            
             options = uc.ChromeOptions()
+            options.binary_location = chrome_bin
             options.add_argument("--disable-popup-blocking")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")

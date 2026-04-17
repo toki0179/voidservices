@@ -46,9 +46,11 @@ RUN mkdir -p /app/data /app/logs
 # Persist runtime state across container/image updates
 VOLUME ["/app/data", "/app/logs"]
 
-# Set environment for Puppeteer
+# Set environment for Puppeteer and Browser Automation
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    CHROME_BIN=/usr/bin/chromium \
+    CHROMIUM_BIN=/usr/bin/chromium \
     SELFBOT_PYTHON=/opt/selfbot-venv/bin/python \
     GEN_PYTHON=/opt/generator-venv/bin/python \
     NODE_ENV=production
