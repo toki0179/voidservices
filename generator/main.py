@@ -113,8 +113,12 @@ def account_ratelimit():
         print(f'{Fore.RED} Error fetching rate limit: {str(e)}')
 		
 init(autoreset=True)
-os.system("cls")
-os.system("title Ultimate EV GEN V1 By Anomus.LY_")
+# Clear screen in a cross-platform way
+if os.name == 'nt':
+    os.system("cls")
+    os.system("title Ultimate EV GEN V1 By Anomus.LY_")
+else:
+    os.system("clear")
 def random_sleep(base=2, variation=3):
     time.sleep(base + random.uniform(0, variation))
 	
@@ -160,12 +164,21 @@ def main():
         print_templog(email)
         driver = None
         try:
+            if uc is None:
+                print(f"{timestamp()} {Fore.RED}undetected_chromedriver is not available. Skipping browser automation for iteration {index + 1}.{Style.RESET_ALL}")
+                continue
+            
             options = uc.ChromeOptions()
             options.add_argument("--disable-popup-blocking")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--ignore-certificate-errors")
-            driver = uc.Chrome(options=options)
+            try:
+                driver = uc.Chrome(options=options)
+            except Exception as chrome_error:
+                print(f"{timestamp()} {Fore.RED}Failed to initialize Chrome/undetected_chromedriver: {str(chrome_error)[:200]}{Style.RESET_ALL}")
+                print(f"{timestamp()} {Fore.YELLOW}Ensure Chromium/Chrome is installed on the system.{Style.RESET_ALL}")
+                continue
             driver.maximize_window()
             driver.get("https://discord.com/register")
             WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, "email")))
