@@ -10,7 +10,7 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 
 const defaultScript = path.join(projectRoot, 'generator', 'main.py');
 const defaultVenvPython = path.join(projectRoot, '.venv', 'bin', 'python');
-const executionTimeoutMs = 30000;
+const executionTimeoutMs = 600000;
 const maxOutputLength = 1800;
 
 function resolvePythonCommand() {
@@ -50,7 +50,16 @@ function trimOutput(value) {
   return `${text.slice(0, maxOutputLength)}\n... output truncated ...`;
 }
 
-function runPython(numberValue) {
+async function sendLogDm(userId, client, message) {
+  try {
+    const user = await client.users.fetch(userId);
+    await user.send(message);
+  } catch (error) {
+    console.error('Failed to send log DM:', error);
+  }
+}
+
+function runPython(numberValue, onLog) {
   const pythonScript = resolvePythonScript();
 
   if (!existsSync(pythonScript)) {
@@ -84,11 +93,19 @@ function runPython(numberValue) {
     }, executionTimeoutMs);
 
     child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
+      const text = chunk.toString();
+      stdout += text;
+      if (onLog) {
+        onLog(text, 'stdout');
+      }
     });
 
     child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
+      const text = chunk.toString();
+      stderr += text;
+      if (onLog) {
+        onLog(text, 'stderr');
+      }
     });
 
     child.on('error', (error) => {
@@ -140,21 +157,50 @@ export default {
 
   async execute(interaction) {
     const numberValue = interaction.options.getNumber('number', true);
+    const userId = interaction.user.id;
+    const client = interaction.client;
 
     await interaction.deferReply({
       flags: MessageFlags.Ephemeral,
     });
 
+    // Set up real-time logging via DM
+    let logBuffer = '';
+    let lastLogTime = Date.now();
+    const logFlushInterval = 5000; // Send DM every 5 seconds
+
+    const flushLogs = async () => {
+      if (logBuffer.trim()) {
+        await sendLogDm(userId, client, `\`\`\`${logBuffer}\`\`\``);
+        logBuffer = '';
+      }
+    };
+
+    const logInterval = setInterval(async () => {
+      await flushLogs();
+    }, logFlushInterval);
+
+    const onLog = (text, type) => {
+      logBuffer += text;
+    };
+
     try {
-      const result = await runPython(numberValue);
+      await interaction.editReply({
+        content: `🚀 Generation started with ${numberValue} iterations. Sending logs via DM...\n**Check your DMs for real-time progress logs.**`,
+      });
+
+      const result = await runPython(numberValue, onLog);
+
+      // Flush remaining logs
+      clearInterval(logInterval);
+      await flushLogs();
 
       if (result.code !== 0) {
         await interaction.editReply(
           [
-            `Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''}.`,
-            `stderr:\n\`\`\`${result.stderr}\`\`\``,
-            `stdout:\n\`\`\`${result.stdout}\`\`\``,
-          ].join('\n\n'),
+            `⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''}.`,
+            `Check your DMs for complete process logs.`,
+          ].join('\n'),
         );
         return;
       }
@@ -169,7 +215,13 @@ export default {
           });
 
           await interaction.editReply({
-            content: `✅ Generation complete with ${numberValue} iterations. Credentials file sent below:`,
+            content: `✅ Generation complete with ${numberValue} iterations. Credentials file sent via DM.`,
+          });
+
+          // Send the file via DM
+          await sendLogDm(userId, client, `Generated credentials file: ${path.basename(result.generatedFile)}`);
+          const user = await client.users.fetch(userId);
+          await user.send({
             files: [attachment],
           });
         } catch (fileError) {
@@ -183,12 +235,14 @@ export default {
       // Fallback: send normal output
       await interaction.editReply(
         [
-          `Started Python file successfully with number: ${numberValue}.`,
-          `stdout:\n\`\`\`${result.stdout}\`\`\``,
-        ].join('\n\n'),
+          `✅ Generation complete with ${numberValue} iterations.`,
+          `Check your DMs for complete process logs.`,
+        ].join('\n'),
       );
     } catch (error) {
-      await interaction.editReply(`Failed to launch Python process: ${error.message}`);
+      clearInterval(logInterval);
+      await flushLogs();
+      await interaction.editReply(`❌ Failed to launch Python process: ${error.message}`);
     }
   },
 };
