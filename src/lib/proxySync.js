@@ -1,5 +1,5 @@
 import net from 'node:net';
-import { replaceResidentialProxies } from './proxyDb.js';
+import { getAllResidentialProxies, replaceResidentialProxies } from './proxyDb.js';
 
 const RESIDENTIAL_PROXY_SOURCES = [
   'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
@@ -234,13 +234,17 @@ async function fetchCandidateProxies() {
 }
 
 export async function syncResidentialProxyDatabase() {
+  const existingProxies = new Set(getAllResidentialProxies());
   const candidates = await fetchCandidateProxies();
 
   if (candidates.length === 0) {
+    const removed = existingProxies.size;
     replaceResidentialProxies([]);
     return {
       candidates: 0,
       active: 0,
+      restocked: 0,
+      removed,
     };
   }
 
@@ -253,23 +257,47 @@ export async function syncResidentialProxyDatabase() {
   });
 
   const validResidential = checks.filter(result => result.valid).map(result => result.proxy);
+  const nextProxySet = new Set(validResidential.map(proxy => proxy.proxy));
+
+  let restocked = 0;
+  for (const proxy of nextProxySet) {
+    if (!existingProxies.has(proxy)) {
+      restocked += 1;
+    }
+  }
+
+  let removed = 0;
+  for (const proxy of existingProxies) {
+    if (!nextProxySet.has(proxy)) {
+      removed += 1;
+    }
+  }
+
   replaceResidentialProxies(validResidential);
 
   return {
     candidates: candidates.length,
     active: validResidential.length,
+    restocked,
+    removed,
   };
 }
 
-export function startResidentialProxySyncJob() {
+export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
   const runSync = async () => {
     try {
       const result = await syncResidentialProxyDatabase();
       console.log(
         `[proxy-sync] Completed: ${result.active}/${result.candidates} residential proxies active.`
       );
+      if (typeof onRunCompleted === 'function') {
+        await onRunCompleted(result);
+      }
     } catch (error) {
       console.error('[proxy-sync] Failed:', error);
+      if (typeof onRunFailed === 'function') {
+        await onRunFailed(error);
+      }
     }
   };
 

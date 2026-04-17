@@ -4,6 +4,7 @@ import {
   ActionRowBuilder,
   Client,
   Collection,
+  EmbedBuilder,
   Events,
   GatewayIntentBits,
   MessageFlags,
@@ -36,6 +37,8 @@ client.commands = new Collection(commands);
 
 const deployment = await registerCommands(commandJson);
 console.log(`Registered ${deployment.count} slash command(s) to ${deployment.scope}.`);
+
+const proxyStatusChannelId = '1494340219535753558';
 
 const sbRunSetupState = new Map();
 const setupTtlMs = 15 * 60 * 1000;
@@ -115,7 +118,32 @@ async function sendCreatorLog(content) {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
-  startResidentialProxySyncJob();
+  startResidentialProxySyncJob({
+    onRunCompleted: async (result) => {
+      try {
+        const channel = await client.channels.fetch(proxyStatusChannelId);
+        if (!channel || !channel.isTextBased()) {
+          console.error(`[proxy-sync] Channel ${proxyStatusChannelId} is unavailable or not text-based.`);
+          return;
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle('Residential Proxy Sync Complete')
+          .setColor(0x2b8a3e)
+          .addFields(
+            { name: 'Restocked', value: String(result.restocked), inline: true },
+            { name: 'Active', value: String(result.active), inline: true },
+            { name: 'Removed', value: String(result.removed), inline: true },
+            { name: 'Candidates Checked', value: String(result.candidates), inline: true }
+          )
+          .setTimestamp();
+
+        await channel.send({ embeds: [embed] });
+      } catch (error) {
+        console.error('[proxy-sync] Failed to send status embed:', error);
+      }
+    },
+  });
   console.log('Started residential proxy sync job (startup + daily).');
 });
 
