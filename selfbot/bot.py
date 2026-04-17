@@ -7,7 +7,7 @@ import logging
 import json
 from importlib.metadata import PackageNotFoundError, version
 from concurrent.futures import ThreadPoolExecutor
-from ollama import Client as OllamaClient
+from ollamafreeapi import OllamaFreeAPI
 import discord
 
 # Configuration from environment
@@ -15,7 +15,6 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 CHANNEL_ID = int(os.getenv('CHANNEL_ID', 0))
 USER_ID = int(os.getenv('USER_ID', 0))
 LLM_MODEL = os.getenv('LLM_MODEL', 'mistral:latest')
-OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434')
 LLM_TIMEOUT_SECONDS = float(os.getenv('LLM_TIMEOUT_SECONDS', '30'))
 
 # Logging
@@ -59,7 +58,8 @@ class SelfCordBot(discord.Client):
         self.target_channel_id = CHANNEL_ID
         self.message_context = []
         self.max_context_messages = 5
-        self.ollama_client = OllamaClient(host=OLLAMA_HOST, timeout=LLM_TIMEOUT_SECONDS)
+        self.llm_client = OllamaFreeAPI()
+        self._available_models = None
         self.running = True
         # ThreadPoolExecutor for concurrent message processing
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -168,27 +168,58 @@ class SelfCordBot(discord.Client):
         self.executor = ThreadPoolExecutor(max_workers=4)
         old_executor.shutdown(wait=False, cancel_futures=True)
     
+    def _get_available_models(self, refresh=False):
+        if refresh or self._available_models is None:
+            try:
+                # Some upstream JSON sources can contain duplicate names.
+                self._available_models = list(dict.fromkeys(self.llm_client.list_models()))
+            except Exception as e:
+                logger.error(f'Failed to fetch available models: {e}')
+                self._available_models = []
+        return self._available_models
+
+    def _resolve_model_name(self, requested_model):
+        available_models = self._get_available_models()
+        if not available_models:
+            return requested_model
+
+        # Try exact match first.
+        if requested_model in available_models:
+            return requested_model
+
+        # Fallback: strip the tag and try base/family matches.
+        base = requested_model.split(':', 1)[0]
+        if base in available_models:
+            return base
+
+        tagged_candidates = [name for name in available_models if name.startswith(f'{base}:')]
+        if tagged_candidates:
+            return tagged_candidates[0]
+
+        return requested_model
+
     def _get_llm_response_sync(self, prompt, context):
-        """Get response from a configured Ollama host (blocking)."""
+        """Get response from OllamaFreeAPI (blocking)."""
         try:
             params = MODEL_PARAMS.get(LLM_MODEL, {})
 
             full_prompt = f"{context}\n\n{prompt}" if context else prompt
-            response = self.ollama_client.generate(
-                model=LLM_MODEL,
+            resolved_model = self._resolve_model_name(LLM_MODEL)
+            response = self.llm_client.chat(
+                model=resolved_model,
                 prompt=full_prompt,
-                options=params,
-                stream=False,
+                **params,
             )
 
-            text = getattr(response, 'response', None)
-            if not text and isinstance(response, dict):
-                text = response.get('response')
+            text = response
             if not text:
-                raise RuntimeError('Empty response body from Ollama')
+                raise RuntimeError('Empty response body from OllamaFreeAPI')
             return text.strip()
         except Exception as e:
             logger.error(f'LLM API error: {e}')
+            if 'No servers available for model' in str(e):
+                # Refresh model list once in case upstream catalog changed.
+                self._get_available_models(refresh=True)
             if self._contains_captcha_signal(str(e)):
                 self._emit_captcha_event('llm-api-error', {
                     'error': str(e),

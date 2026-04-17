@@ -16,26 +16,13 @@ pip install -r requirements.txt
 
 ## LLM Setup
 
-The selfbot communicates with Ollama directly at `http://127.0.0.1:11434` by default.
-You can override this with `OLLAMA_HOST`.
+The selfbot communicates through `ollamafreeapi`, which discovers public Ollama endpoints automatically.
+You do not need to self-host an Ollama server for this mode.
 
-### Using Ollama (Recommended)
+### Model Access
 
-1. Install Ollama from https://ollama.ai
-2. Run the Ollama server:
-   ```bash
-   ollama serve
-   ```
-3. Pull desired models:
-   ```bash
-   ollama pull llama3.2:3b
-   ollama pull deepseek-r1:latest
-   ollama pull gpt-oss:20b
-   ollama pull mistral:latest
-   ollama pull mistral-nemo:custom
-   ollama pull bakllava:latest
-   ollama pull smollm2:135m
-   ```
+`ollamafreeapi` provides a live model catalog and selects an available server for the chosen model.
+No local model pull step is required.
 
 ### Available Models
 
@@ -55,7 +42,6 @@ The JavaScript bot passes these to the Python selfbot:
 - `CHANNEL_ID` - Target channel ID for the selfbot
 - `USER_ID` - ID of the user who started the bot
 - `LLM_MODEL` - Selected LLM model from `/sbrun`
-- `OLLAMA_HOST` - Ollama server URL (default: `http://127.0.0.1:11434`)
 - `LLM_TIMEOUT_SECONDS` - Per-request timeout in seconds (default: `30`)
 
 ## Model Parameters
@@ -73,6 +59,6 @@ Each model has tuned hyperparameters for optimal performance:
 
 ## Troubleshooting
 
-- **"Failed to connect to LLM API"**: Ensure Ollama is running and `OLLAMA_HOST` is reachable
-- **"Model not found"**: Pull the model with `ollama pull <model-name>`
+- **"Failed to connect to LLM API"**: Public model endpoints may be temporarily unavailable. Try again shortly.
+- **"Model not found"**: The selected model may no longer be present in the live `ollamafreeapi` catalog.
 - **"Token invalid"**: Verify the discord.py-self library is compatible with your Discord account type
