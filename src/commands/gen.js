@@ -50,10 +50,10 @@ function trimOutput(value) {
   return `${text.slice(0, maxOutputLength)}\n... output truncated ...`;
 }
 
-async function sendLogDm(userId, client, message) {
+async function sendLogDm(userId, client, message, attachments = []) {
   try {
     const user = await client.users.fetch(userId);
-    await user.send(message);
+    await user.send({ content: message, files: attachments });
   } catch (error) {
     console.error('Failed to send log DM:', error);
   }
@@ -165,34 +165,40 @@ export default {
     });
 
     // Set up real-time logging via DM
+
     let logBuffer = '';
     let lastLogTime = Date.now();
     const logFlushInterval = 5000; // Send DM every 5 seconds
-
     const flushLogs = async () => {
-      if (logBuffer.trim()) {
-        await sendLogDm(userId, client, `\`\`\`${logBuffer}\`\`\``);
-        logBuffer = '';
-        // check the log if there is a screenshot path and send the screenshot as well as attachment
-        const screenshotMatch = logBuffer.match(/SCREENSHOT_PATH:(.+)/);
-        if (screenshotMatch && screenshotMatch[1]) {
-          const screenshotPath = screenshotMatch[1].trim();
-          if (existsSync(screenshotPath)) {
-            try {
-              const fileContent = readFileSync(screenshotPath);
-              const attachment = new AttachmentBuilder(fileContent, {
-                name: path.basename(screenshotPath),
-              });
-              const user = await client.users.fetch(userId);
-              await user.send({
-                files: [attachment],
-              });
-            } catch (fileError) {
-              console.error('Failed to send screenshot DM:', fileError);
-            }
+      if (!logBuffer.trim()) return;
+
+      // Find all SCREENSHOT_PATH:screenshots/{xyz}.png lines
+      const screenshotRegex = /^SCREENSHOT_PATH:(screenshots\/[\w\-.]+\.png)$/gm;
+      let match;
+      let attachments = [];
+      let cleanedLog = logBuffer;
+      while ((match = screenshotRegex.exec(logBuffer)) !== null) {
+        const screenshotPath = match[1];
+        const absPath = path.join(projectRoot, screenshotPath);
+        if (existsSync(absPath)) {
+          try {
+            const fileBuffer = readFileSync(absPath);
+            attachments.push(new AttachmentBuilder(fileBuffer, { name: path.basename(screenshotPath) }));
+          } catch (e) {
+            cleanedLog += `\n[Failed to attach screenshot: ${screenshotPath}]`;
           }
+        } else {
+          cleanedLog += `\n[Missing screenshot file: ${screenshotPath}]`;
         }
       }
+      // Remove all SCREENSHOT_PATH lines from the log
+      cleanedLog = cleanedLog.replace(screenshotRegex, '').trim();
+      if (cleanedLog) {
+        await sendLogDm(userId, client, `\`\`\`${cleanedLog}\`\`\``, attachments);
+      } else if (attachments.length > 0) {
+        await sendLogDm(userId, client, '', attachments);
+      }
+      logBuffer = '';
     };
 
     const logInterval = setInterval(async () => {
