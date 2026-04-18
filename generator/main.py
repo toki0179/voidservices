@@ -219,6 +219,8 @@ def main():
             # Press TAB to move to date of birth field and open the date picker and hit enter, type january, and then enter again, and tab
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
             # hit enter and type january and then hit enter again to set the month
+            print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
+
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("January")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
@@ -237,18 +239,17 @@ def main():
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("1999")
             time.sleep(0.5)
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
-            
+
             # Screenshot after moving to year field for debugging and send back to nodejs parent process
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
             print(f"SCREENSHOT_PATH:{screenshot_path}")
-            
             time.sleep(0.5)
 
-            print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
 
             # actions = ActionChains(driver)
             # actions.pause(0.5)
