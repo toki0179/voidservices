@@ -226,6 +226,12 @@ def main():
             time.sleep(0.5)
             # Press TAB to move to day field, hit enter, type 20, and then hit enter again to set the day
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
+            # Screenshot after moving to day field for debugging and send back to nodejs parent process
+            screenshot_path = f"screenshots/dayfield_{generate_random_string(5)}.png
+            os.makedirs("screenshots", exist_ok=True)
+            driver.save_screenshot(screenshot_path)
+            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+            print(f"SCREENSHOT_PATH:{screenshot_path}")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("20")
@@ -234,18 +240,17 @@ def main():
             # Press TAB to move to year field, hit enter, type 2000, and
             # then hit enter again to set the year
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
+            # Screenshot after moving to year field for debugging and send back to nodejs parent process
+            screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png
+            os.makedirs("screenshots", exist_ok=True)
+            driver.save_screenshot(screenshot_path)
+            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+            print(f"SCREENSHOT_PATH:{screenshot_path}")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("2000")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
-
-            # Screenshot after filling form for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
-            os.makedirs("screenshots", exist_ok=True)
-            driver.save_screenshot(screenshot_path)
-            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
-            print(f"SCREENSHOT_PATH:{screenshot_path}")
 
             print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
 
