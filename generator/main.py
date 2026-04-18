@@ -216,8 +216,16 @@ def main():
             driver.find_element(By.NAME, "username").send_keys(username)
             password_value = email
             driver.find_element(By.NAME, "password").send_keys(password_value)
-            
+
+            # Screenshot after filling form for debugging and send back to nodejs parent process
+            screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
+            os.makedirs("screenshots", exist_ok=True)
+            driver.save_screenshot(screenshot_path)
+            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+            print(f"SCREENSHOT_PATH:{screenshot_path}")
+
             print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
+
             actions = ActionChains(driver)
             actions.send_keys(Keys.TAB)
             actions.pause(0.5)
