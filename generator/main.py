@@ -250,6 +250,7 @@ def main():
             # Handle checkboxes
             try:
                 locator = (By.XPATH, "//input[@type='checkbox']")
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", locator)
                 checkboxes = WebDriverWait(driver, 10).until(
                     EC.presence_of_all_elements_located(locator)
                 )
