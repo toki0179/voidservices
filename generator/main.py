@@ -218,7 +218,27 @@ def main():
             driver.find_element(By.NAME, "password").send_keys(password_value)
             # Press TAB to move to date of birth field and open the date picker and hit enter, type january, and then enter again, and tab
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
-
+            # hit enter and type january and then hit enter again to set the month
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
+            driver.find_element(By.NAME, "password").send_keys("January")
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
+            # Press TAB to move to day field, hit enter, type 20, and then hit enter again to set the day
+            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
+            driver.find_element(By.NAME, "password").send_keys("20")
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
+            # Press TAB to move to year field, hit enter, type 2000, and
+            # then hit enter again to set the year
+            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
+            driver.find_element(By.NAME, "password").send_keys("2000")
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
 
             # Screenshot after filling form for debugging and send back to nodejs parent process
             screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
@@ -228,35 +248,6 @@ def main():
             print(f"SCREENSHOT_PATH:{screenshot_path}")
 
             print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
-
-            # To set date of birth, we should find the date picker element by searching for the word Month, and then clicking it, and then sending keys to it. This is because the date picker is not a standard input field and requires interaction to open the dropdowns for month, day, and year.
-            month_field = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[contains(@aria-label, 'Month')]"))
-            )
-            month_field.click()
-            time.sleep(0.5)  # wait for dropdown to open
-            month_field.send_keys("January")
-            month_field.send_keys(Keys.ENTER)
-            time.sleep(0.5)
-
-            # We will repeat the same process for day and year, but we can use the fact that after selecting month, the focus should move to day, and then to year after selecting day. So we can just send keys without finding the elements again.
-            day_field = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[contains(@aria-label, 'Day')]"))
-            )
-            day_field.click()
-            time.sleep(0.5)  # wait for dropdown to open
-            day_field.send_keys("20")
-            day_field.send_keys(Keys.ENTER)
-            time.sleep(0.5)
-
-            year_field = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[contains(@aria-label, 'Year')]"))
-            )
-            year_field.click()
-            time.sleep(0.5)  # wait for dropdown to open
-            year_field.send_keys("2000")
-            year_field.send_keys(Keys.ENTER)
-            time.sleep(0.5)
 
             # actions = ActionChains(driver)
             # actions.pause(0.5)
