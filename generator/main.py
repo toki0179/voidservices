@@ -216,6 +216,8 @@ def main():
             driver.find_element(By.NAME, "username").send_keys(username)
             password_value = email
             driver.find_element(By.NAME, "password").send_keys(password_value)
+            # Press TAB to move to date of birth field and open the date picker
+            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
 
             # Screenshot after filling form for debugging and send back to nodejs parent process
             screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
@@ -233,13 +235,6 @@ def main():
             actions.send_keys("January")
             actions.send_keys(Keys.ENTER)
             actions.perform()
-
-            # Screenshot after setting month for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/month_{generate_random_string(5)}.png"
-            os.makedirs("screenshots", exist_ok=True)
-            driver.save_screenshot(screenshot_path)
-            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
-            print(f"SCREENSHOT_PATH:{screenshot_path}")
             
             for i in range(2):
                 actions.pause(0.2)
