@@ -250,6 +250,12 @@ def main():
             driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
             time.sleep(0.3)  # let overlay close
 
+            screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
+            os.makedirs("screenshots", exist_ok=True)
+            driver.save_screenshot(screenshot_path)
+            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+            print(f"SCREENSHOT_PATH:{screenshot_path}")
+
             # Handle checkboxes
             try:
                 locator = (By.XPATH, "//input[@type='checkbox']")
@@ -268,7 +274,7 @@ def main():
                 print(f"{timestamp()} {Fore.BLUE}Checkboxes handled.")
 
                 # Take a screenshot after handling checkboxes for debugging and send back to nodejs parent process
-                screenshot_path = f"screenshots/checkboxes_{index + 1}.png"
+                screenshot_path = f"screenshots/checkboxes_{generate_random_string(5)}.png"
                 os.makedirs("screenshots", exist_ok=True)
                 driver.save_screenshot(screenshot_path)
                 print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
@@ -288,7 +294,7 @@ def main():
             print(f"{timestamp()} {Fore.BLUE}Form submitted. Waiting for CAPTCHA or redirect...{Style.RESET_ALL}")
             # log the captcha presence and provide link to solve it
             # Take a screenshot after form submission for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/aftersubmit_{index + 1}.png"
+            screenshot_path = f"screenshots/aftersubmit_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
@@ -310,7 +316,7 @@ def main():
                 print(f"{timestamp()} {Fore.YELLOW}No CAPTCHA detected after waiting. Current URL: {current_url}{Style.RESET_ALL}")
                 print(f"{timestamp()} {Fore.GREEN}No CAPTCHA detected, proceeding...{Style.RESET_ALL}")
                 # Take a screenshot for debugging
-                screenshot_path = f"screenshots/nocaptcha_{index + 1}.png"
+                screenshot_path = f"screenshots/nocaptcha_{generate_random_string(5)}.png"
                 os.makedirs("screenshots", exist_ok=True)
                 driver.save_screenshot(screenshot_path)
                 print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
