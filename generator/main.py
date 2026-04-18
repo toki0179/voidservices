@@ -233,7 +233,7 @@ def main():
             print(f"SCREENSHOT_PATH:{screenshot_path}")
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("20")
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
             time.sleep(0.5)
 
             time.sleep(0.5)
