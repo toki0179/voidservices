@@ -246,11 +246,13 @@ def main():
                 actions.send_keys("2000")
                 actions.send_keys(Keys.ENTER)
                 actions.perform()
-            
+
+            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+            time.sleep(0.3)  # let overlay close
+
             # Handle checkboxes
             try:
                 locator = (By.XPATH, "//input[@type='checkbox']")
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", locator)
                 checkboxes = WebDriverWait(driver, 10).until(
                     EC.presence_of_all_elements_located(locator)
                 )
