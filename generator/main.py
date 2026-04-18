@@ -278,17 +278,6 @@ def main():
             #     actions.send_keys(Keys.ENTER)
             #     actions.perform()
 
-            # Screenshot after setting date for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/date_{generate_random_string(5)}.png"
-            os.makedirs("screenshots", exist_ok=True)
-            driver.save_screenshot(screenshot_path)
-            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
-            print(f"SCREENSHOT_PATH:{screenshot_path}")
-
-
-            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-            time.sleep(0.3)  # let overlay close
-
             screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
