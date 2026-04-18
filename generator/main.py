@@ -227,7 +227,7 @@ def main():
             # Press TAB to move to day field, hit enter, type 20, and then hit enter again to set the day
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
             # Screenshot after moving to day field for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/dayfield_{generate_random_string(5)}.png
+            screenshot_path = f"screenshots/dayfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
@@ -241,7 +241,7 @@ def main():
             # then hit enter again to set the year
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
             # Screenshot after moving to year field for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png
+            screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
