@@ -258,6 +258,13 @@ def main():
                         
                 print(f"{timestamp()} {Fore.BLUE}Checkboxes handled.")
 
+                # Take a screenshot after handling checkboxes for debugging and send back to nodejs parent process
+                screenshot_path = f"screenshots/checkboxes_{index + 1}.png"
+                os.makedirs("screenshots", exist_ok=True)
+                driver.save_screenshot(screenshot_path)
+                print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+                print(f"SCREENSHOT_PATH:{screenshot_path}")
+
             except Exception as e:
                 print(f"{timestamp()} {Fore.RED}Error handling checkboxes: {e}{Style.RESET_ALL}")
 
