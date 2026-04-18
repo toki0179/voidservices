@@ -278,6 +278,13 @@ def main():
 
             print(f"{timestamp()} {Fore.BLUE}Form submitted. Waiting for CAPTCHA or redirect...{Style.RESET_ALL}")
             # log the captcha presence and provide link to solve it
+            # Take a screenshot after form submission for debugging and send back to nodejs parent process
+            screenshot_path = f"screenshots/aftersubmit_{index + 1}.png"
+            os.makedirs("screenshots", exist_ok=True)
+            driver.save_screenshot(screenshot_path)
+            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+            print(f"SCREENSHOT_PATH:{screenshot_path}")
+
             try:
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "captcha-iframe")))
                 print(f"{timestamp()} {Fore.YELLOW}CAPTCHA detected. Please solve it in the browser window.{Style.RESET_ALL}")
@@ -293,6 +300,12 @@ def main():
                 current_url = driver.current_url
                 print(f"{timestamp()} {Fore.YELLOW}No CAPTCHA detected after waiting. Current URL: {current_url}{Style.RESET_ALL}")
                 print(f"{timestamp()} {Fore.GREEN}No CAPTCHA detected, proceeding...{Style.RESET_ALL}")
+                # Take a screenshot for debugging
+                screenshot_path = f"screenshots/nocaptcha_{index + 1}.png"
+                os.makedirs("screenshots", exist_ok=True)
+                driver.save_screenshot(screenshot_path)
+                print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+                print(f"SCREENSHOT_PATH:{screenshot_path}")
 
             # Wait for redirect to Discord channels
             WebDriverWait(driver, 300).until(EC.url_contains("discord.com/channels/@me"))
