@@ -211,7 +211,7 @@ def main():
             # Wait for email field and fill form
             WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, "email")))
             driver.find_element(By.NAME, "email").send_keys(email)
-            driver.find_element(By.NAME, "global_name").send_keys("Lunarxterm")
+            driver.find_element(By.NAME, "global_name").send_keys("v0idterm")
             username = generate_random_string()
             driver.find_element(By.NAME, "username").send_keys(username)
             password_value = email
@@ -219,35 +219,28 @@ def main():
             # Press TAB to move to date of birth field and open the date picker and hit enter, type january, and then enter again, and tab
             driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
             # hit enter and type january and then hit enter again to set the month
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("January")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
-            # Press TAB to move to day field, hit enter, type 20, and then hit enter again to set the day
-            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
             # Screenshot after moving to day field for debugging and send back to nodejs parent process
             screenshot_path = f"screenshots/dayfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
             print(f"SCREENSHOT_PATH:{screenshot_path}")
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("20")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
-            # Press TAB to move to year field, hit enter, type 2000, and
-            # then hit enter again to set the year
-            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
+            
             # Screenshot after moving to year field for debugging and send back to nodejs parent process
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
             driver.save_screenshot(screenshot_path)
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
             print(f"SCREENSHOT_PATH:{screenshot_path}")
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
-            time.sleep(0.5)
+
             driver.find_element(By.NAME, "password").send_keys("2000")
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
