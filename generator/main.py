@@ -217,7 +217,7 @@ def main():
             password_value = email
             driver.find_element(By.NAME, "password").send_keys(password_value)
             # Press TAB to move to date of birth field and open the date picker and hit enter, type january, and then enter again, and tab
-            driver.find_element(By.NAME, "password").send_keys(Keys.TAB)
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             # hit enter and type january and then hit enter again to set the month
             print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
 
