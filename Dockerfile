@@ -57,6 +57,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
         echo "Unsupported TARGETARCH for pinned Chromium v120: ${TARGETARCH}" \
         && exit 1; \
     fi \
+    && ln -sf /usr/bin/chromium /usr/bin/google-chrome-stable \
     && rm -rf /var/lib/apt/lists/* /tmp/*.deb
 
 # Verify Chromium installation
