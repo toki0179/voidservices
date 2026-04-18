@@ -234,13 +234,6 @@ def main():
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
 
-            # Screenshot after moving to year field for debugging and send back to nodejs parent process
-            screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
-            os.makedirs("screenshots", exist_ok=True)
-            driver.save_screenshot(screenshot_path)
-            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
-            print(f"SCREENSHOT_PATH:{screenshot_path}")
-
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys("2")
             time.sleep(0.2)
@@ -252,6 +245,13 @@ def main():
             time.sleep(0.5)
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
+
+            # Screenshot after moving to year field for debugging and send back to nodejs parent process
+            screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
+            os.makedirs("screenshots", exist_ok=True)
+            driver.save_screenshot(screenshot_path)
+            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
+            print(f"SCREENSHOT_PATH:{screenshot_path}")
 
             print(f"{timestamp()} {Fore.YELLOW}Trying to set the date..{Style.RESET_ALL}")
 
