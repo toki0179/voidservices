@@ -173,6 +173,25 @@ export default {
       if (logBuffer.trim()) {
         await sendLogDm(userId, client, `\`\`\`${logBuffer}\`\`\``);
         logBuffer = '';
+        // check the log if there is a screenshot path and send the screenshot as well as attachment
+        const screenshotMatch = logBuffer.match(/SCREENSHOT_PATH:(.+)/);
+        if (screenshotMatch && screenshotMatch[1]) {
+          const screenshotPath = screenshotMatch[1].trim();
+          if (existsSync(screenshotPath)) {
+            try {
+              const fileContent = readFileSync(screenshotPath);
+              const attachment = new AttachmentBuilder(fileContent, {
+                name: path.basename(screenshotPath),
+              });
+              const user = await client.users.fetch(userId);
+              await user.send({
+                files: [attachment],
+              });
+            } catch (fileError) {
+              console.error('Failed to send screenshot DM:', fileError);
+            }
+          }
+        }
       }
     };
 
