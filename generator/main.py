@@ -239,6 +239,8 @@ def main():
             time.sleep(0.5)
 
             driver.find_element(By.NAME, "password").send_keys("2000")
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            time.sleep(0.5)
             # Screenshot after moving to year field for debugging and send back to nodejs parent process
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
