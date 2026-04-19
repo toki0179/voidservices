@@ -238,9 +238,22 @@ def main():
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
 
-            driver.find_element(By.NAME, "password").click()  # Click to ensure the year field is focused
-            driver.find_element(By.NAME, "password").send_keys("2000")
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            # Since send_keys is unreliable for the year field, we can try clicking it and sending keys again, and if that fails we can try using JavaScript to set the value directly
+            try:
+                year_field = driver.find_element(By.XPATH, "//input[@placeholder='Year']")
+                year_field.click()
+                time.sleep(0.5)
+                year_field.send_keys("2000")
+                year_field.send_keys(Keys.ENTER)
+            except Exception as e:
+                print(f"{timestamp()} {Fore.YELLOW}Failed to set year with send_keys, trying JavaScript: {str(e)}{Style.RESET_ALL}")
+                try:
+                    driver.execute_script("document.querySelector('input[placeholder=\"Year\"]').value = '2000';")
+                    driver.execute_script("document.querySelector('input[placeholder=\"Year\"]').dispatchEvent(new Event('change'));")
+                    print(f"{timestamp()} {Fore.GREEN}Year set successfully with JavaScript{Style.RESET_ALL}")
+                except Exception as js_e:
+                    print(f"{timestamp()} {Fore.RED}Failed to set year with JavaScript as well: {str(js_e)}{Style.RESET_ALL}")
+                    
             time.sleep(0.5)            
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
