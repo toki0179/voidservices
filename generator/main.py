@@ -244,7 +244,7 @@ def main():
                 year_field.click()
                 time.sleep(0.5)
                 # Select specific year using dom and then clicking it, since send_keys is unreliable for the year field
-                year_option = driver.find_element(By.XPATH, "//div[@role='option' and text()='2000']")
+                year_option = driver.find_element(By.XPATH, "//div[text()='2000']")
                 year_option.click()
                 print(f"{timestamp()} {Fore.GREEN}Year set successfully by clicking the option{Style.RESET_ALL}")
             except Exception as e:
