@@ -243,8 +243,10 @@ def main():
                 year_field = driver.find_element(By.XPATH, "//input[@placeholder='Year']")
                 year_field.click()
                 time.sleep(0.5)
-                year_field.send_keys("2000")
-                year_field.send_keys(Keys.ENTER)
+                # Select specific year using dom and then clicking it, since send_keys is unreliable for the year field
+                year_option = driver.find_element(By.XPATH, "//div[@role='option' and text()='2000']")
+                year_option.click()
+                print(f"{timestamp()} {Fore.GREEN}Year set successfully by clicking the option{Style.RESET_ALL}")
             except Exception as e:
                 print(f"{timestamp()} {Fore.YELLOW}Failed to set year with send_keys, trying JavaScript: {str(e)}{Style.RESET_ALL}")
                 try:
@@ -253,7 +255,7 @@ def main():
                     print(f"{timestamp()} {Fore.GREEN}Year set successfully with JavaScript{Style.RESET_ALL}")
                 except Exception as js_e:
                     print(f"{timestamp()} {Fore.RED}Failed to set year with JavaScript as well: {str(js_e)}{Style.RESET_ALL}")
-                    
+
             time.sleep(0.5)            
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
