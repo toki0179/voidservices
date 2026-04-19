@@ -238,25 +238,12 @@ def main():
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
 
-            # Find year field by class name (we need to use contains because sometimes the class updates when a discord update is released) and click it to open the year options, then select 2000 by clicking it, since send_keys is unreliable for the year field
-            try:
-                # Find year by css name that contains "year" and click it to open the options dont use xpath because the class name changes frequently with discord updates, we can use contains to find it more reliably)
-                year_field = driver.find_element(By.CSS_SELECTOR("div[class^='year-']"))
-                year_field.click()
-                time.sleep(0.5)
-                # Select specific year using dom and then clicking it, since send_keys is unreliable for the year field
-                year_option = driver.find_element(By.XPATH, "//div[text()='2000']")
-                year_option.click()
-                print(f"{timestamp()} {Fore.GREEN}Year set successfully by clicking the option{Style.RESET_ALL}")
-            except Exception as e:
-                print(f"{timestamp()} {Fore.YELLOW}Failed to set year with send_keys, trying JavaScript: {str(e)}{Style.RESET_ALL}")
-                try:
-                    driver.execute_script("document.querySelector('input[placeholder=\"Year\"]').value = '2000';")
-                    driver.execute_script("document.querySelector('input[placeholder=\"Year\"]').dispatchEvent(new Event('change'));")
-                    print(f"{timestamp()} {Fore.GREEN}Year set successfully with JavaScript{Style.RESET_ALL}")
-                except Exception as js_e:
-                    print(f"{timestamp()} {Fore.RED}Failed to set year with JavaScript as well: {str(js_e)}{Style.RESET_ALL}")
+            # Send down key to move to year field and then type 2000 and hit enter (we have to repeat this 23 times to get to the year 2000 because of the way the date picker works)
+            for _ in range(23):
+                driver.find_element(By.NAME, "password").send_keys(Keys.DOWN)
+                time.sleep(0.1)
 
+            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)            
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
