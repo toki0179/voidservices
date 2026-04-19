@@ -239,7 +239,6 @@ def main():
             time.sleep(0.5)
             
             time.sleep(5)
-            driver.find_element(By.NAME, "password").send_keys("2000")
             time.sleep(0.5)
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
