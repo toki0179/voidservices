@@ -238,9 +238,10 @@ def main():
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
 
-            # Since send_keys is unreliable for the year field, we can try clicking it and sending keys again, and if that fails we can try using JavaScript to set the value directly
+            # Find year field by class name (we need to use contains because sometimes the class updates when a discord update is released) and click it to open the year options, then select 2000 by clicking it, since send_keys is unreliable for the year field
             try:
-                year_field = driver.find_element(By.XPATH, "//input[@placeholder='Year']")
+                # Find year by css name that contains "year" and click it to open the options dont use xpath because the class name changes frequently with discord updates, we can use contains to find it more reliably)
+                year_field = driver.find_element(By.css("div[class^='year-']"))
                 year_field.click()
                 time.sleep(0.5)
                 # Select specific year using dom and then clicking it, since send_keys is unreliable for the year field
