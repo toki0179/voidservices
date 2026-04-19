@@ -242,8 +242,7 @@ def main():
             for _ in range(23):
                 driver.find_element(By.NAME, "password").send_keys(Keys.DOWN)
                 time.sleep(0.1)
-
-            driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
+            driver.find_element(By.NAME, "password").send_keys(Keys.ESCAPE)
             time.sleep(0.5)            
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)
