@@ -241,7 +241,7 @@ def main():
             # Find year field by class name (we need to use contains because sometimes the class updates when a discord update is released) and click it to open the year options, then select 2000 by clicking it, since send_keys is unreliable for the year field
             try:
                 # Find year by css name that contains "year" and click it to open the options dont use xpath because the class name changes frequently with discord updates, we can use contains to find it more reliably)
-                year_field = driver.find_element(By.css("div[class^='year-']"))
+                year_field = driver.find_element(By.CSS_SELECTOR("div[class^='year-']"))
                 year_field.click()
                 time.sleep(0.5)
                 # Select specific year using dom and then clicking it, since send_keys is unreliable for the year field
