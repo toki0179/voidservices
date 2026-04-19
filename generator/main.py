@@ -248,7 +248,7 @@ def main():
             print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
             print(f"SCREENSHOT_PATH:{screenshot_path}")
               # Close date picker
-            time.sleep(0.5)
+            time.sleep(5)
 
             # actions = ActionChains(driver)
             # actions.pause(0.5)
@@ -277,12 +277,6 @@ def main():
             #     actions.send_keys("2000")
             #     actions.send_keys(Keys.ENTER)
             #     actions.perform()
-
-            screenshot_path = f"screenshots/filledform_{generate_random_string(5)}.png"
-            os.makedirs("screenshots", exist_ok=True)
-            driver.save_screenshot(screenshot_path)
-            print(f"{timestamp()} {Fore.GREEN}Screenshot saved: {screenshot_path}{Style.RESET_ALL}")
-            print(f"SCREENSHOT_PATH:{screenshot_path}")
 
             # Handle checkboxes
             try:
