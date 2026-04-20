@@ -5,3 +5,6 @@ fake-useragent
 pystyle
 requests
 tls-client
+playwright
+OllamaFreeAPI
+playwright-stealth
