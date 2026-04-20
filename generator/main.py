@@ -177,7 +177,8 @@ def run(playwright: Playwright) -> None:
     # Screenshot captcha for manual solving
     import os
     path_name = f"captcha_{username}.png"
-    page.locator("iframe[title=\"hCaptcha challenge\"]").screenshot(path=path_name)
+    # Screenshot in the iframe by class=text-text make sure this isnt css class area to avoid extra elements and get a cleaner image for OCR
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=path_name)
     # Compress the image before base64 encoding
     from PIL import Image
     import base64
@@ -249,7 +250,7 @@ def run(playwright: Playwright) -> None:
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
             print("LOG:Taking screenshot and running OCR for next captcha page")
             path_name = f"captcha_{username}_next.png"
-            page.locator("iframe[title=\"hCaptcha challenge\"]").screenshot(path=path_name)
+            page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=path_name)
             with Image.open(path_name) as img:
                 rgb_img = img.convert("RGB")
                 rgb_img.save(compressed_path, format="JPEG", quality=60)
@@ -303,5 +304,22 @@ def run(playwright: Playwright) -> None:
     context.close()
     browser.close()
 
-with Stealth().use_sync(sync_playwright()) as playwright:
-    run(playwright)
+# ------------------------------------------------------------
+# Main execution with comprehensive error logging on process exit
+# ------------------------------------------------------------
+if __name__ == "__main__":
+    try:
+        with Stealth().use_sync(sync_playwright()) as playwright:
+            run(playwright)
+    except Exception as e:
+        # Print the error in the required "LOG: {error logs}" format
+        print(f"LOG: Process terminated due to an exception: {type(e).__name__}: {e}")
+        # Optionally print traceback for debugging (still in LOG format)
+        import traceback
+        print("LOG: Full traceback:")
+        for line in traceback.format_exc().splitlines():
+            print(f"LOG: {line}")
+        # Re-raise if you want the script to exit with non-zero code
+        raise
+    else:
+        print("LOG: Process finished normally.")
