@@ -3,6 +3,7 @@ import time
 import string
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
+from ollamafreeapi import OllamaFreeAPI
 
 def random_string(length: int) -> str:
     letters = string.ascii_lowercase
@@ -46,6 +47,7 @@ def select_dropdown_with_arrows(page, dropdown_text: str, down_presses: int) -> 
     human_delay(0.2, 0.5)
 
 def run(playwright: Playwright) -> None:
+    client = OllamaFreeAPI()
     browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
     name = "voidservices"
@@ -91,6 +93,35 @@ def run(playwright: Playwright) -> None:
     create_btn = page.get_by_role("button", name="Create Account")
     human_move_and_click(page, create_btn)
 
+    # Wait for hCaptcha to load
+    page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
+
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
+
+    # Screenshot captcha for manual solving
+    path_name = f"captcha_{username}.png"
+    page.locator("iframe[title=\"hCaptcha challenge\"]").screenshot(path=path_name)
+    # Convert the image to base64 for API submission
+    import base64
+    with open(path_name, "rb") as img_file:
+        img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
+    # Use OllamaFreeAPI to solve captcha with the screenshot and the model Bakllava:latest with the prompt, "Solve this puzzle and return the numerical answer only."
+    # response = client.chat(
+            # model_name=model_name,
+            # prompt=prompt,
+            # temperature=0.7,
+            # num_predict=256
+    # )
+    response = client.chat(
+        model_name="Bakllava:latest",
+        prompt=f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}",
+        temperature=0.7,
+        num_predict=256
+    )
+
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").click()
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").fill(response.strip())
     # Handle rate limiting
     if page.locator("text=You are being rate limited").is_visible():
         print("Rate limit detected, waiting 60 seconds...")
@@ -99,26 +130,6 @@ def run(playwright: Playwright) -> None:
         context.close()
         browser.close()
         return
-
-    # Detect hCaptcha using data-id attribute wildcard
-    try:
-        # Wait for any iframe with data-id starting with "hcaptcha-frame-"
-        hcaptcha_iframe = page.frame_locator('iframe[data-id^="hcaptcha-frame-"]')
-        hcaptcha_iframe.first.wait_for(state="attached", timeout=5000)
-        print("hCaptcha detected – please solve it manually.")
-        print("Waiting for captcha to be solved...")
-        # Wait until no such iframe exists (user solved it)
-        page.wait_for_function(
-            """() => {
-                const iframes = document.querySelectorAll('iframe[data-id^="hcaptcha-frame-"]');
-                return iframes.length === 0;
-            }""",
-            timeout=120000  # 2 minutes for user to solve
-        )
-        print("Captcha solved!")
-    except:
-        # No hCaptcha iframe found within timeout
-        pass
 
     # Wait for successful redirect
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)
