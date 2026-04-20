@@ -98,6 +98,8 @@ def run(playwright: Playwright) -> None:
     page.mouse.wheel(0, random.randint(50, 150))
     human_delay(0.5, 1.0)
 
+    print("LOG:Ensuring first registration input is ready")
+    page.wait_for_selector('input[name="email"]', timeout=10000)
     print("LOG:Filling registration form")
     # Email
     email = f"{random_string(8)}@shady.gg"
