@@ -169,7 +169,7 @@ def run(playwright: Playwright) -> None:
 
     # Get all available models and try each in order until one succeeds
     # Use a specific model (e.g., 'mistral:latest')
-    model_name = 'deepseek-r1:1.5b'
+    model_name = 'qwen3:8b-q4_K_M'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha with LLM model: {model_name}")
     # Build prompt: instruct model to output ONLY the answer
