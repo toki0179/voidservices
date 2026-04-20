@@ -126,18 +126,11 @@ function runPython(numberValue, onLog) {
       
       const credsMatch = stdout.match(/LOG:Credentials saved to (.+)/);
       if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
-
-      // Add the generated file path to the result if it exists
-      if (generatedFile) {
-        const potentialPath = path.join(projectRoot, 'generator', generatedFile);
-        if (existsSync(potentialPath)) {
-          generatedFile = potentialPath;
-        } else {
-          generatedFile = null; // file not found, ignore
-        }
+      // If 2 groups, the second is the filename, but we should combine them for with / if needed
+      const credsMatch2 = stdout.match(/LOG:Credentials saved to (.+)\/(.+)/);
+      if (credsMatch2 && credsMatch2[1] && credsMatch2[2]) {
+        generatedFile = path.join(credsMatch2[1].trim(), credsMatch2[2].trim());
       }
-
-
       resolve({
         code,
         signal,
