@@ -53,7 +53,7 @@ function trimOutput(value) {
 async function sendLogDm(userId, client, message, attachments = []) {
   try {
     const user = await client.users.fetch(userId);
-    await user.send({ content: message, files: attachments });
+    await user.send({ content: message });
   } catch (error) {
     console.error('Failed to send log DM:', error);
   }
@@ -164,39 +164,14 @@ export default {
       flags: MessageFlags.Ephemeral,
     });
 
-    // Set up real-time logging via DM
-
+    // Set up real-time logging via DM (only LOG: lines, no screenshots)
     let logBuffer = '';
-    let lastLogTime = Date.now();
     const logFlushInterval = 5000; // Send DM every 5 seconds
     const flushLogs = async () => {
       if (!logBuffer.trim()) return;
-
-      // Find all SCREENSHOT_PATH:screenshots/{xyz}.png lines
-      const screenshotRegex = /^SCREENSHOT_PATH:(screenshots\/[\w\-.]+\.png)$/gm;
-      let match;
-      let attachments = [];
-      let cleanedLog = logBuffer;
-      while ((match = screenshotRegex.exec(logBuffer)) !== null) {
-        const screenshotPath = match[1];
-        const absPath = path.join(projectRoot, screenshotPath);
-        if (existsSync(absPath)) {
-          try {
-            const fileBuffer = readFileSync(absPath);
-            attachments.push(new AttachmentBuilder(fileBuffer, { name: path.basename(screenshotPath) }));
-          } catch (e) {
-            cleanedLog += `\n[Failed to attach screenshot: ${screenshotPath}]`;
-          }
-        } else {
-          cleanedLog += `\n[Missing screenshot file: ${screenshotPath}]`;
-        }
-      }
-      // Remove all SCREENSHOT_PATH lines from the log
-      cleanedLog = cleanedLog.replace(screenshotRegex, '').trim();
-      if (cleanedLog) {
-        await sendLogDm(userId, client, `\`\`\`${cleanedLog}\`\`\``, attachments);
-      } else if (attachments.length > 0) {
-        await sendLogDm(userId, client, '', attachments);
+      const logLines = logBuffer.split(/\r?\n/).filter(line => line.startsWith('LOG:'));
+      if (logLines.length) {
+        await sendLogDm(userId, client, `\${logLines.join('\n')}\`);
       }
       logBuffer = '';
     };
