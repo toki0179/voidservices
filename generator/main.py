@@ -116,12 +116,15 @@ def run(playwright: Playwright) -> None:
     from PIL import Image
     import base64
     import io
+    import pytesseract
     compressed_path = f"captcha_{username}_compressed.jpg"
     with Image.open(path_name) as img:
         rgb_img = img.convert("RGB")
         rgb_img.save(compressed_path, format="JPEG", quality=60)
-    with open(compressed_path, "rb") as img_file:
-        img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
+
+    # OCR extraction
+    extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
+    print(f"[OCR] Extracted text: {extracted_text.strip()}")
 
     model_name = 'bakllava:latest'
     servers = client.get_model_servers(model_name)
@@ -132,7 +135,7 @@ def run(playwright: Playwright) -> None:
         browser.close()
     # Use the first (fastest/closest) server
     server_url = servers[0]['url']
-    prompt = f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}"
+    prompt = f"Solve this puzzle and return the numerical answer only. Here is the captcha text: {extracted_text.strip()}"
     token_count = count_tokens(prompt)
     print(f"Prompt token estimate: {token_count}")
     # Use stream_chat for streaming logs and final output
