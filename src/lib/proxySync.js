@@ -1,7 +1,7 @@
 import net from 'node:net';
-import { getAllResidentialProxies, replaceResidentialProxies } from './proxyDb.js';
+import { getAllProxies, replaceProxies } from './proxyDb.js';
 
-const RESIDENTIAL_PROXY_SOURCES = [
+const PROXY_SOURCES = [
   'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
   'https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt',
   'https://raw.githubusercontent.com/opsxcq/proxy-list/master/list.txt',
@@ -15,35 +15,9 @@ const MAX_CANDIDATE_PROXIES = 800;
 const LOOKUP_CONCURRENCY = 20;
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-const DATACENTER_KEYWORDS = [
-  'amazon',
-  'aws',
-  'google',
-  'gcp',
-  'microsoft',
-  'azure',
-  'digitalocean',
-  'linode',
-  'ovh',
-  'hetzner',
-  'leaseweb',
-  'vultr',
-  'choopa',
-  'contabo',
-  'oracle cloud',
-  'ibm cloud',
-  'datacenter',
-  'colo',
-  'hosting',
-  'vps',
-];
 
-const residentialLookupCache = new Map();
 
-function includesDatacenterKeywords(value) {
-  const normalized = String(value || '').toLowerCase();
-  return DATACENTER_KEYWORDS.some(keyword => normalized.includes(keyword));
-}
+
 
 async function fetchTextWithTimeout(url) {
   const controller = new AbortController();
@@ -61,7 +35,7 @@ async function fetchTextWithTimeout(url) {
     clearTimeout(timeoutId);
   }
 }
-
+    for (const source of PROXY_SOURCES) {
 async function fetchJsonWithTimeout(url) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -93,17 +67,15 @@ function parseProxyEndpoint(proxy, source) {
   if (!match) {
     return null;
   }
-
   const ip = match[1];
   const port = Number(match[2]);
   const octets = ip.split('.').map(Number);
-
-  const validIp = octets.length === 4 && octets.every(part => part >= 0 && part <= 255);
+  const validIp = octets.length === 4 && octets.every(octet => Number.isInteger(octet) && octet >= 0 && octet <= 255);
   const validPort = Number.isInteger(port) && port > 0 && port <= 65535;
-
   if (!validIp || !validPort) {
     return null;
   }
+}
 
   return {
     proxy: `${ip}:${port}`,
@@ -113,69 +85,26 @@ function parseProxyEndpoint(proxy, source) {
   };
 }
 
-async function isLikelyResidentialIp(ip) {
-  if (residentialLookupCache.has(ip)) {
-    return residentialLookupCache.get(ip);
-  }
-
-  const ipApi = await fetchJsonWithTimeout(
-    `http://ip-api.com/json/${ip}?fields=status,hosting,isp,org,as`
-  );
-
-  let isResidential = false;
-
-  if (ipApi && ipApi.status === 'success') {
-    const isDatacenter =
-      ipApi.hosting === true
-      || includesDatacenterKeywords(ipApi.as)
-      || includesDatacenterKeywords(ipApi.org)
-      || includesDatacenterKeywords(ipApi.isp);
-
-    isResidential = !isDatacenter;
-  }
-
-  if (!isResidential) {
-    const ipWho = await fetchJsonWithTimeout(`https://ipwho.is/${ip}`);
-    if (ipWho && ipWho.success !== false) {
-      const connection = ipWho.connection || {};
-      const isDatacenter =
-        includesDatacenterKeywords(connection.org)
-        || includesDatacenterKeywords(connection.isp)
-        || includesDatacenterKeywords(connection.domain);
-
-      isResidential = !isDatacenter;
-    }
-  }
-
-  residentialLookupCache.set(ip, isResidential);
-  return isResidential;
-}
-
-async function canConnectToProxy(ip, port) {
-  return await new Promise((resolve) => {
-    const socket = net.createConnection({ host: ip, port });
-    let settled = false;
-
-    function finish(result) {
-      if (settled) {
-        return;
+// Removed isLikelyResidentialIp and related legacy code from residential proxy logic.
+      try {
+        const result = await syncProxyDatabase();
+        console.log(
+          `[proxy-sync] Completed: ${result.active}/${result.candidates} proxies active.`
+        );
+        if (typeof onRunCompleted === 'function') {
+          await onRunCompleted(result);
+        }
+      } catch (error) {
+        console.error('[proxy-sync] Failed:', error);
+        if (typeof onRunFailed === 'function') {
+          await onRunFailed(error);
+        }
       }
-      settled = true;
-      socket.destroy();
-      resolve(result);
-    }
 
-    socket.setTimeout(SOCKET_TIMEOUT_MS);
-    socket.once('connect', () => finish(true));
-    socket.once('timeout', () => finish(false));
-    socket.once('error', () => finish(false));
-  });
-}
-
-async function validateResidentialProxy(proxyRecord) {
-  // Only check if the proxy is connectable (no residential check)
-  return await canConnectToProxy(proxyRecord.ip, proxyRecord.port);
-}
+    void runSync();
+    return setInterval(() => {
+      void runSync();
+    }, DAILY_INTERVAL_MS);
 
 async function mapWithConcurrency(items, limit, mapper) {
   const output = new Array(items.length);
@@ -197,7 +126,7 @@ async function mapWithConcurrency(items, limit, mapper) {
 async function fetchCandidateProxies() {
   const candidates = new Map();
 
-  for (const source of RESIDENTIAL_PROXY_SOURCES) {
+  for (const source of PROXY_SOURCES) {
     const text = await fetchTextWithTimeout(source);
     if (!text) {
       continue;
@@ -228,13 +157,13 @@ async function fetchCandidateProxies() {
   return Array.from(candidates.values());
 }
 
-export async function syncResidentialProxyDatabase() {
-  const existingProxies = new Set(getAllResidentialProxies());
+export async function syncProxyDatabase() {
+  const existingProxies = new Set(getAllProxies());
   const candidates = await fetchCandidateProxies();
 
   if (candidates.length === 0) {
     const removed = existingProxies.size;
-    replaceResidentialProxies([]);
+    replaceProxies([]);
     return {
       candidates: 0,
       active: 0,
@@ -244,7 +173,7 @@ export async function syncResidentialProxyDatabase() {
   }
 
   const checks = await mapWithConcurrency(candidates, LOOKUP_CONCURRENCY, async (proxy) => {
-    const valid = await validateResidentialProxy(proxy);
+    const valid = await validateProxy(proxy);
     return {
       proxy,
       valid,
@@ -268,7 +197,7 @@ export async function syncResidentialProxyDatabase() {
     }
   }
 
-  replaceResidentialProxies(validProxies);
+  replaceProxies(validProxies);
 
   return {
     candidates: candidates.length,
@@ -278,12 +207,12 @@ export async function syncResidentialProxyDatabase() {
   };
 }
 
-export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
+export function startProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
   const runSync = async () => {
     try {
-      const result = await syncResidentialProxyDatabase();
+      const result = await syncProxyDatabase();
       console.log(
-        `[proxy-sync] Completed: ${result.active}/${result.candidates} residential proxies active.`
+        `[proxy-sync] Completed: ${result.active}/${result.candidates} proxies active.`
       );
       if (typeof onRunCompleted === 'function') {
         await onRunCompleted(result);
@@ -294,10 +223,6 @@ export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {
         await onRunFailed(error);
       }
     }
-  };
-
+  }
   void runSync();
-  return setInterval(() => {
-    void runSync();
-  }, DAILY_INTERVAL_MS);
-}
+};
