@@ -95,9 +95,11 @@ def run(playwright: Playwright) -> None:
 
     # Wait for hCaptcha to load
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
-
+    time.sleep(2)  # Extra wait to ensure captcha is fully interactive
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
+    time.sleep(1)
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
+    time.sleep(1)
 
     # Screenshot captcha for manual solving
     path_name = f"captcha_{username}.png"
@@ -106,22 +108,27 @@ def run(playwright: Playwright) -> None:
     import base64
     with open(path_name, "rb") as img_file:
         img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
-    # Use OllamaFreeAPI to solve captcha with the screenshot and the model Bakllava:latest with the prompt, "Solve this puzzle and return the numerical answer only."
-    # response = client.chat(
-            # model_name=model_name,
-            # prompt=prompt,
-            # temperature=0.7,
-            # num_predict=256
-    # )
-    response = client.chat(
-        model_name="Bakllava:latest",
-        prompt=f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}",
-        temperature=0.7,
-        num_predict=256
-    )
 
+    model_name = 'bakllava:latest'
+    servers = client.get_model_servers(model_name)
+    print(f"Available servers for {model_name}: {servers}")
+    if not servers:
+        print(f"No servers found for model {model_name}")
+        context.close()
+        browser.close()
+        return
+    # Use the first (fastest/closest) server
+    server_url = servers[0]['url']
+    prompt = f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}"
+    # Use direct Client for speed
+    from ollama import Client as OllamaClient
+    ollama_client = OllamaClient(host=server_url)
+    request = client.generate_api_request(model_name, prompt, temperature=0.7, num_predict=16)
+    response = ollama_client.generate(**request)
+    answer = response['response'] if isinstance(response, dict) else str(response)
+    print(f"Received response from Ollama API: {answer}")
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").click()
-    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").fill(response.strip())
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").fill(answer.strip())
     # Handle rate limiting
     if page.locator("text=You are being rate limited").is_visible():
         print("Rate limit detected, waiting 60 seconds...")
