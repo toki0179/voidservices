@@ -1,3 +1,11 @@
+def count_tokens(text):
+    try:
+        import tiktoken
+        enc = tiktoken.get_encoding('cl100k_base')
+        return len(enc.encode(text))
+    except ImportError:
+        # Fallback: estimate by word count (not accurate for LLMs, but better than nothing)
+        return len(text.split())
 import random
 import time
 import string
@@ -47,15 +55,6 @@ def select_dropdown_with_arrows(page, dropdown_text: str, down_presses: int) -> 
     human_delay(0.2, 0.5)
 
 def run(playwright: Playwright) -> None:
-        # Utility: Token counting
-        def count_tokens(text):
-            try:
-                import tiktoken
-                enc = tiktoken.get_encoding('cl100k_base')
-                return len(enc.encode(text))
-            except ImportError:
-                # Fallback: estimate by word count (not accurate for LLMs, but better than nothing)
-                return len(text.split())
     client = OllamaFreeAPI()
     browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
@@ -131,7 +130,6 @@ def run(playwright: Playwright) -> None:
         print(f"No servers found for model {model_name}")
         context.close()
         browser.close()
-        return
     # Use the first (fastest/closest) server
     server_url = servers[0]['url']
     prompt = f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}"
