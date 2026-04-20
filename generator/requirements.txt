@@ -8,3 +8,7 @@ tls-client
 playwright
 OllamaFreeAPI
 playwright-stealth
+python-dotenv
+pillow
+pytesseract
+tiktoken
