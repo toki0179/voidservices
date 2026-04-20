@@ -201,12 +201,12 @@ def run(playwright: Playwright) -> None:
 
     # Get all available models and try each in order until one succeeds
     # Use a specific model (e.g., 'mistral:latest')
-    model_name = 'qwen2.5:3b-instruct'
+    model_name = 'phi3.5:latest'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha with LLM model: {model_name}")
     # Build prompt: instruct model to output ONLY the answer
     full_prompt = (
-        "You are solving a captcha. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. "
+        "You are solving a puzzle. DO NOT REPEAT THE QUESTION. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. "
         "If the answer is a number or a sequence of numbers, output the entire number or sequence exactly as shown in the captcha. If it is a word or phrase, output the entire word or phrase. Do not say anything else.\n"
         f"Captcha: {extracted_text.strip()}"
     )
@@ -294,10 +294,10 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
     # Generate a file with the credentials overwriting an old one if it exists, and creating one if it doesnt, in the format "username:password", the name should a randomly generated string 5 characters long txt, and the file should be saved in generated/
-    credentials_filename = f"generated/{random_string(5)}.txt"
+    credentials_filename = f"generated/{random_string(8)}.txt"
     try:
         with open(credentials_filename, "w") as f:
-            f.write(f"{username}:{password}")
+            f.write(f"{username}:{email}:{password}")
         print(f"LOG:Credentials saved to {credentials_filename}")
     except Exception as e:
         print(f"LOG:Failed to append credentials: {e}")
