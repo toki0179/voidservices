@@ -130,6 +130,24 @@ def run(playwright: Playwright) -> None:
     human_move_and_click(page, checkbox)
     human_delay(0.5, 1.0)
 
+
+    print("LOG:Verifying registration fields before continuing")
+    # Check and fill any empty registration fields (ignore DOB and checkbox)
+    registration_fields = [
+        (page.get_by_role("textbox", name="Email"), email),
+        (page.get_by_role("textbox", name="Display Name"), name),
+        (page.get_by_role("textbox", name="Username"), username),
+        (page.get_by_role("textbox", name="Password"), password),
+    ]
+    for locator, value in registration_fields:
+        try:
+            current_value = locator.input_value()
+            if not current_value.strip():
+                print(f"LOG:Field empty, refilling: {locator}")
+                human_type(page, locator, value)
+        except Exception as e:
+            print(f"LOG:Error checking field {locator}: {e}")
+
     print("LOG:Clicking create account button")
     # Create Account button
     create_btn = page.get_by_role("button", name="Create Account")
