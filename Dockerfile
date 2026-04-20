@@ -42,6 +42,8 @@ RUN apt-get update \
         libatk-bridge2.0-0 \
         libgtk-3-0 \
         libgbm1 \
+        tesseract-ocr \
+        libtesseract-dev \
     && rm -rf /var/lib/apt/lists/
 
 # Install Chromium v120 with architecture-aware snapshot packages
