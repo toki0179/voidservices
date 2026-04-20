@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
+import string
 def count_tokens(text):
     try:
         import tiktoken
@@ -10,12 +11,19 @@ def count_tokens(text):
         return len(text.split())
 import random
 import time
-import string
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
 from ollama import Client as OllamaClient
 
 def random_string(length: int) -> str:
+    import os
+    headless_env = os.environ.get("HEADLESS", None)
+    if headless_env is not None:
+        headless = headless_env.lower() in ("1", "true", "yes")
+    else:
+        # Default to headless in Docker, non-headless otherwise
+        headless = os.environ.get("DOCKER", "0") in ("1", "true", "yes") or os.environ.get("CI", "0") in ("1", "true", "yes")
+    launch_args = {"headless": headless}
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for _ in range(length))
 
@@ -100,7 +108,7 @@ def run(playwright: Playwright) -> None:
         print(f"LOG:Using proxy: {selected_proxy}")
     else:
         print("LOG:No working proxies found, running without proxy.")
-    launch_args = {"headless": False}
+    launch_args = {"headless": True}
     if selected_proxy:
         launch_args["proxy"] = {"server": f"http://{selected_proxy}"}
     print("LOG:Launching browser")
