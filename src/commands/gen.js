@@ -12,23 +12,18 @@ const defaultScript = path.join(projectRoot, 'generator', 'main.py');
 const defaultVenvPython = path.join(projectRoot, '.venv', 'bin', 'python');
 const executionTimeoutMs = 600000;
 const maxOutputLength = 1800;
+const DISCORD_MESSAGE_LIMIT = 1900; // leave room for backticks and iteration header
 
 function resolvePythonCommand() {
   const configured = process.env.GEN_PYTHON;
-  if (configured && existsSync(configured)) {
-    return configured;
-  }
-  if (existsSync(defaultVenvPython)) {
-    return defaultVenvPython;
-  }
+  if (configured && existsSync(configured)) return configured;
+  if (existsSync(defaultVenvPython)) return defaultVenvPython;
   return 'python3';
 }
 
 function resolvePythonScript() {
   const configured = process.env.GEN_SCRIPT;
-  if (configured && existsSync(configured)) {
-    return configured;
-  }
+  if (configured && existsSync(configured)) return configured;
   return defaultScript;
 }
 
@@ -40,11 +35,22 @@ function trimOutput(value) {
 }
 
 async function sendLogDm(userId, client, message, attachments = []) {
+  if (!message || typeof message !== 'string') {
+    console.error(`[sendLogDm] Invalid message: ${message}`);
+    return;
+  }
+
+  // Truncate message to Discord limit
+  let finalMessage = message;
+  if (finalMessage.length > DISCORD_MESSAGE_LIMIT) {
+    finalMessage = finalMessage.slice(0, DISCORD_MESSAGE_LIMIT - 50) + '\n... (truncated)';
+  }
+
   try {
     const user = await client.users.fetch(userId);
-    await user.send({ content: message, files: attachments });
+    await user.send({ content: finalMessage, files: attachments });
   } catch (error) {
-    console.error('Failed to send log DM:', error);
+    console.error(`[sendLogDm] Failed to send DM to ${userId}:`, error);
   }
 }
 
@@ -61,7 +67,7 @@ function runPython(numberValue, onLog) {
       env: {
         ...process.env,
         GEN_NUMBER: String(numberValue),
-        PYTHONUNBUFFERED: '1',   // ← critical: disables stdout buffering
+        PYTHONUNBUFFERED: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -69,8 +75,8 @@ function runPython(numberValue, onLog) {
     let stdout = '';
     let stderr = '';
     let finished = false;
-    let stdoutBuffer = '';   // persistent line buffer for stdout
-    let stderrBuffer = '';   // persistent line buffer for stderr
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
 
     const timeout = setTimeout(() => {
       if (finished) return;
@@ -83,9 +89,8 @@ function runPython(numberValue, onLog) {
       const text = chunk.toString();
       stdout += text;
       stdoutBuffer += text;
-
       const lines = stdoutBuffer.split(/\r?\n/);
-      stdoutBuffer = lines.pop() || '';   // keep incomplete line
+      stdoutBuffer = lines.pop() || '';
       for (const line of lines) {
         if (onLog) onLog(line + '\n', 'stdout');
       }
@@ -95,7 +100,6 @@ function runPython(numberValue, onLog) {
       const text = chunk.toString();
       stderr += text;
       stderrBuffer += text;
-
       const lines = stderrBuffer.split(/\r?\n/);
       stderrBuffer = lines.pop() || '';
       for (const line of lines) {
@@ -114,16 +118,12 @@ function runPython(numberValue, onLog) {
       if (finished) return;
       finished = true;
       clearTimeout(timeout);
-
-      // flush remaining buffered lines
       if (stdoutBuffer && onLog) onLog(stdoutBuffer, 'stdout');
       if (stderrBuffer && onLog) onLog(stderrBuffer, 'stderr');
 
       let generatedFile = null;
       const fileMatch = stdout.match(/GENERATED_FILE:(.+)/);
-      if (fileMatch && fileMatch[1]) {
-        generatedFile = fileMatch[1].trim();
-      }
+      if (fileMatch && fileMatch[1]) generatedFile = fileMatch[1].trim();
 
       resolve({
         code,
@@ -141,10 +141,7 @@ export default {
     .setName('gen')
     .setDescription('Run the configured Python generator file with a number input')
     .addNumberOption((option) =>
-      option
-        .setName('number')
-        .setDescription('Required number to pass into the Python process')
-        .setRequired(true),
+      option.setName('number').setDescription('Number of iterations').setRequired(true)
     ),
 
   async execute(interaction) {
@@ -154,9 +151,8 @@ export default {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // real‑time logging via DM
     let logBuffer = '';
-    let pendingLine = '';          // carry over incomplete line across flushes
+    let pendingLine = '';
     const logFlushInterval = 5000;
 
     const flushLogs = async () => {
@@ -164,11 +160,18 @@ export default {
       if (!allText.trim()) return;
 
       const lines = allText.split(/\r?\n/);
-      pendingLine = lines.pop() || '';   // save incomplete line for next time
+      pendingLine = lines.pop() || '';
       const logLines = lines.filter(line => line.startsWith('LOG:'));
 
       if (logLines.length) {
-        await sendLogDm(userId, client, `\`\`\`[Iteration: ${numberValue}]\n${logLines.join('\n')}\`\`\``);
+        let message = `\`\`\`[Iteration: ${numberValue}]\n${logLines.join('\n')}\`\`\``;
+        // Truncate if too long
+        if (message.length > DISCORD_MESSAGE_LIMIT) {
+          const available = DISCORD_MESSAGE_LIMIT - `\`\`\`[Iteration: ${numberValue}]\n...\`\`\``.length - 10;
+          const truncatedContent = logLines.join('\n').slice(0, available) + '\n... (truncated)';
+          message = `\`\`\`[Iteration: ${numberValue}]\n${truncatedContent}\`\`\``;
+        }
+        await sendLogDm(userId, client, message);
       }
       logBuffer = '';
     };
@@ -177,7 +180,7 @@ export default {
       await flushLogs();
     }, logFlushInterval);
 
-    const onLog = (text, type) => {
+    const onLog = (text) => {
       logBuffer += text;
     };
 
@@ -189,7 +192,7 @@ export default {
       const result = await runPython(numberValue, onLog);
 
       clearInterval(logInterval);
-      await flushLogs();   // final flush
+      await flushLogs();
 
       if (result.code !== 0) {
         await interaction.editReply(
@@ -198,7 +201,6 @@ export default {
         return;
       }
 
-      // If a credentials file was generated, send it as attachment
       if (result.generatedFile && existsSync(result.generatedFile)) {
         const filePath = path.join(projectRoot, result.generatedFile);
         const fileContent = readFileSync(filePath, 'utf-8');
@@ -211,7 +213,6 @@ export default {
         return;
       }
 
-      // Fallback
       await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
     } catch (error) {
       clearInterval(logInterval);
