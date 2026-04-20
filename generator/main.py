@@ -4,7 +4,7 @@ def count_tokens(text):
         enc = tiktoken.get_encoding('cl100k_base')
         return len(enc.encode(text))
     except ImportError:
-        # Fallback: estimate by word count (not accurate for LLMs, but better than nothing)
+        print("[WARN] tiktoken not installed, using word count as a rough estimate. Token count may be much higher, especially for base64 data.")
         return len(text.split())
 import random
 import time
@@ -136,6 +136,7 @@ def run(playwright: Playwright) -> None:
     token_count = count_tokens(prompt)
     print(f"Prompt token estimate: {token_count}")
     # Use stream_chat for streaming logs and final output
+    print("Waiting for model to process image, this may take a while...")
     print("Streaming response from Ollama API:")
     stream = client.stream_chat(prompt, model=model_name, temperature=0.7, num_predict=16)
     answer_chunks = []
