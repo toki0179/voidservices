@@ -238,10 +238,16 @@ def main():
             driver.find_element(By.NAME, "password").send_keys(Keys.ENTER)
             time.sleep(0.5)
 
-            # Send down key to move to year field and then type 2000 and hit enter (we have to repeat this 23 times to get to the year 2000 because of the way the date picker works)
-            for _ in range(23):
-                driver.find_element(By.NAME, "password").send_keys(Keys.DOWN)
-                time.sleep(0.1)
+            # Find year field and press, then find the year 2000 and click it, lets find it by finding the text "Year", and then find the Year by the text 2000.
+            find_year = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Year')]")))
+            driver.execute_script("arguments[0].scrollIntoView(true);", find_year)
+            time.sleep(0.5)
+            find_year.click()
+            time.sleep(0.5)
+            find_2000 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(), '2000')]")))
+            driver.execute_script("arguments[0].scrollIntoView(true);", find_2000)
+            time.sleep(0.5)
+            find_2000.click()
             time.sleep(0.5)
             screenshot_path = f"screenshots/yearfield_{generate_random_string(5)}.png"
             os.makedirs("screenshots", exist_ok=True)

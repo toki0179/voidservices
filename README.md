@@ -90,6 +90,22 @@ The `/gen` command runs `generator/main.py` and forwards the slash command numbe
    - `GEN_SCRIPT` to point to a different Python script path
    - `GEN_PYTHON` to point to a specific Python executable
 
+## Development
+
+To start a local development environment for the bot:
+
+1. Install dependencies and start the bot:
+
+   ```sh
+   npm run dev
+   ```
+
+   This will install all required dependencies and launch the bot using your local environment variables.
+
+2. Ensure you have a valid `.env` file (see `.env.example`).
+
+3. The bot will run locally and connect to Discord using your provided token.
+
 ## Extending the bot
 
 Add a new file in `src/commands/` that exports a `data` slash-command definition and an `execute` handler.
