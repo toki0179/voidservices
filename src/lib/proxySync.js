@@ -173,13 +173,8 @@ async function canConnectToProxy(ip, port) {
 }
 
 async function validateResidentialProxy(proxyRecord) {
-  const isResidential = await isLikelyResidentialIp(proxyRecord.ip);
-  if (!isResidential) {
-    return false;
-  }
-
-  const isReachable = await canConnectToProxy(proxyRecord.ip, proxyRecord.port);
-  return isReachable;
+  // Only check if the proxy is connectable (no residential check)
+  return await canConnectToProxy(proxyRecord.ip, proxyRecord.port);
 }
 
 async function mapWithConcurrency(items, limit, mapper) {
@@ -256,8 +251,8 @@ export async function syncResidentialProxyDatabase() {
     };
   });
 
-  const validResidential = checks.filter(result => result.valid).map(result => result.proxy);
-  const nextProxySet = new Set(validResidential.map(proxy => proxy.proxy));
+  const validProxies = checks.filter(result => result.valid).map(result => result.proxy);
+  const nextProxySet = new Set(validProxies.map(proxy => proxy.proxy));
 
   let restocked = 0;
   for (const proxy of nextProxySet) {
@@ -273,11 +268,11 @@ export async function syncResidentialProxyDatabase() {
     }
   }
 
-  replaceResidentialProxies(validResidential);
+  replaceResidentialProxies(validProxies);
 
   return {
     candidates: candidates.length,
-    active: validResidential.length,
+    active: validProxies.length,
     restocked,
     removed,
   };
