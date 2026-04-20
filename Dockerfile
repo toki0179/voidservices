@@ -76,19 +76,8 @@ RUN python3 -m venv /opt/selfbot-venv \
     && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt \
     && python3 -m venv /opt/generator-venv \
     && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/generator-venv/bin/pip install --no-cache-dir seleniumbase \
-        undetected-chromedriver \
-        selenium \
-        requests \
-        colorama \
-        pystyle \
-        fake_useragent \
-        tls-client \
-        websocket-client \
-        pydirectinput \
-        pyautogui \
-        playwright \
-        'setuptools<70.0.0' \
+    && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/generator-venv/bin/pip install --no-cache-dir -r /app/generator/requirements.txt \
     && /opt/generator-venv/bin/python -m playwright install --with-deps
 
 # Create data directory for SQLite database
