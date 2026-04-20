@@ -174,8 +174,8 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Solving captcha with LLM model: {model_name}")
     # Build prompt: instruct model to output ONLY the answer
     full_prompt = (
-        "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
-        "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
+        "You are solving a captcha. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. "
+        "If the answer is a number or a sequence of numbers, output the entire number or sequence exactly as shown in the captcha. If it is a word or phrase, output the entire word or phrase. Do not say anything else.\n"
         f"Captcha: {extracted_text.strip()}"
     )
     token_count = count_tokens(full_prompt)
@@ -199,99 +199,60 @@ def run(playwright: Playwright) -> None:
         captcha_input = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox")
         print("LOG:Filling captcha input")
         human_type(page, captcha_input, answer)
-        # Submit captcha using a button that works for all pages
-        # Try to find a 'Next Challenge, page X of' button, fallback to 'Submit' if not found
         print("LOG:Submitting captcha (Next/Submit button)")
         content_frame = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame
         next_btn = None
         try:
-            # Use regex to match any 'Next Challenge, page X of' button
             next_btn = content_frame.locator('role=button')
             if next_btn.count() > 0 and next_btn.first.is_visible():
                 human_move_and_click(page, next_btn.first)
             else:
                 raise Exception('No Next Challenge button visible')
         except Exception:
-            # Fallback to 'Submit' button
             submit_btn = content_frame.get_by_role("button", name="Submit")
             human_move_and_click(page, submit_btn)
         print("LOG:Waiting after captcha submit")
         human_delay(1.0, 2.0)
-        # Check for another captcha page
         print("LOG:Checking for next captcha page or completion")
         try:
-            # Wait for either a new captcha or the challenge to disappear
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
-            # If still present, re-screenshot, OCR, and solve again
             print("LOG:Taking screenshot and running OCR for next captcha page")
             path_name = f"captcha_{username}_next.png"
             page.locator("iframe[title=\"hCaptcha challenge\"]").screenshot(path=path_name)
             with Image.open(path_name) as img:
                 rgb_img = img.convert("RGB")
                 rgb_img.save(compressed_path, format="JPEG", quality=60)
-            # Delete the screenshot after compressing
             try:
                 os.remove(path_name)
             except Exception as e:
                 logger.warning(f"Could not delete {path_name}: {e}")
             extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
             print(f"LOG:OCR extracted text (next): {extracted_text.strip()}")
-            # Re-run LLM solve
-            answer = None
-            last_error = None
-            for model_name in available_models:
-                params = MODEL_PARAMS.get(model_name, {})
-                servers = client.get_model_servers(model_name)
-                print(f"LOG:Trying model: {model_name} with servers: {servers}")
-                if not servers:
-                    logger.warning(f"No servers found for model {model_name}, skipping.")
-                    continue
-                preferred_url = _preferred_server.get(model_name)
-                if preferred_url:
-                    servers.sort(key=lambda server: server.get('url') != preferred_url)
-                import random as _random
-                _random.shuffle(servers)
-                # Build prompt: instruct model to output ONLY the answer
-                full_prompt = (
-                    "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
-                    "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
-                    f"Captcha: {extracted_text.strip()}"
-                )
-                token_count = count_tokens(full_prompt)
-                print(f"LOG:Prompt token estimate: {token_count}")
-                for server in servers:
-                    url = server.get('url')
-                    if not url:
-                        continue
-                    try:
-                        from ollama import Client as OllamaClient
-                        client_ollama = OllamaClient(host=url, timeout=15)
-                        request = client.generate_api_request(model=model_name, prompt=full_prompt, **params)
-                        request['stream'] = False
-                        response = client_ollama.generate(**request)
-                        text = getattr(response, 'response', None)
-                        if not text and isinstance(response, dict):
-                            text = response.get('response')
-                        if text:
-                            _preferred_server[model_name] = url
-                            answer = text.strip()
-                            print(f"LOG:Model {model_name} succeeded with server {url}")
-                            break
-                        last_error = RuntimeError('Empty response body from upstream server')
-                    except Exception as server_error:
-                        last_error = server_error
-                        print(f"LOG:Server {url} for model {model_name} failed: {server_error}")
+            # Re-run LLM solve with direct OllamaClient
+            full_prompt = (
+                "You are solving a captcha. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. "
+                "If the answer is a number or a sequence of numbers, output the entire number or sequence exactly as shown in the captcha. If it is a word or phrase, output the entire word or phrase. Do not say anything else.\n"
+                f"Captcha: {extracted_text.strip()}"
+            )
+            token_count = count_tokens(full_prompt)
+            print(f"LOG:Prompt token estimate: {token_count}")
+            try:
+                response = client.generate(model=model_name, prompt=full_prompt, **params)
+                answer = response.get('response') if isinstance(response, dict) else getattr(response, 'response', None)
                 if answer:
-                    break
-            if not answer:
-                print(f"LOG:All models and servers failed. Last error: {last_error}")
+                    answer = answer.strip()
+                    print(f"LOG:Model {model_name} succeeded with answer: {answer}")
+                else:
+                    print("LOG:No answer returned from model.")
+                    answer = "I couldn't generate a response right now."
+            except Exception as e:
+                print(f"LOG:Ollama server error: {e}")
                 answer = "I couldn't generate a response right now."
             print(f"LOG:Final answer: {answer}")
             print("LOG:Continuing to next captcha page")
             continue  # Loop again for next captcha page
         except Exception:
             print("LOG:Captcha challenge complete or iframe gone")
-            # If iframe is gone, captcha is done
             break
 
     # Handle rate limiting
