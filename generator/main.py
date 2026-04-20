@@ -120,13 +120,15 @@ def run(playwright: Playwright) -> None:
     # Use the first (fastest/closest) server
     server_url = servers[0]['url']
     prompt = f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}"
-    # Use direct Client for speed
-    from ollama import Client as OllamaClient
-    ollama_client = OllamaClient(host=server_url)
-    request = client.generate_api_request(model_name, prompt, temperature=0.7, num_predict=16)
-    response = ollama_client.generate(**request)
-    answer = response['response'] if isinstance(response, dict) else str(response)
-    print(f"Received response from Ollama API: {answer}")
+    # Use stream_chat for streaming logs and final output
+    print("Streaming response from Ollama API:")
+    stream = client.stream_chat(prompt, model=model_name, temperature=0.7, num_predict=16)
+    answer_chunks = []
+    for chunk in stream:
+        print(chunk, end='', flush=True)
+        answer_chunks.append(chunk)
+    answer = ''.join(answer_chunks)
+    print(f"\nFinal answer: {answer}")
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").click()
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox", name="Please use only numbers in").fill(answer.strip())
     # Handle rate limiting
