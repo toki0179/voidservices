@@ -182,6 +182,11 @@ def run(playwright: Playwright) -> None:
         os.remove(path_name)
     except Exception as e:
         logger.warning(f"Could not delete {path_name}: {e}")
+    # Delete the compressed image after OCR
+    try:
+        os.remove(compressed_path)
+    except Exception as e:
+        logger.warning(f"Could not delete {compressed_path}: {e}")
 
     # OCR extraction
     extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
@@ -246,6 +251,11 @@ def run(playwright: Playwright) -> None:
                 os.remove(path_name)
             except Exception as e:
                 logger.warning(f"Could not delete {path_name}: {e}")
+            # Delete the compressed image after OCR
+            try:
+                os.remove(compressed_path)
+            except Exception as e:
+                logger.warning(f"Could not delete {compressed_path}: {e}")
             extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
             print(f"LOG:OCR extracted text (next): {extracted_text.strip()}")
             # Re-run LLM solve with direct OllamaClient
