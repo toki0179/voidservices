@@ -293,11 +293,12 @@ def run(playwright: Playwright) -> None:
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
-    # Append credentials to a file for parent process to send at the end
+    # Generate a file with the credentials overwriting an old one if it exists, and creating one if it doesnt, in the format "username:password", the name should a randomly generated string 5 characters long txt, and the file should be saved in generated/
+    credentials_filename = f"generated/{random_string(5)}.txt"
     try:
-        with open("generated/credentials_log.txt", "a") as f:
-            f.write(f"Username: {username}\nPassword: {password}\n\n")
-        print("LOG:Appended credentials to generated/credentials_log.txt")
+        with open(credentials_filename, "w") as f:
+            f.write(f"{username}:{password}")
+        print(f"LOG:Credentials saved to {credentials_filename}")
     except Exception as e:
         print(f"LOG:Failed to append credentials: {e}")
     print("LOG:Closing browser and context")

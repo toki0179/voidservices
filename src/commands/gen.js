@@ -122,8 +122,21 @@ function runPython(numberValue, onLog) {
       if (stderrBuffer && onLog) onLog(stderrBuffer, 'stderr');
 
       let generatedFile = null;
-      const fileMatch = stdout.match(/GENERATED_FILE:(.+)/);
-      if (fileMatch && fileMatch[1]) generatedFile = fileMatch[1].trim();
+      // look for a log that looks like LOG: Credentials saved to {credentials_filename}
+      
+      const credsMatch = stdout.match(/LOG:Credentials saved to (.+)/);
+      if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
+
+      // Add the generated file path to the result if it exists
+      if (generatedFile) {
+        const potentialPath = path.join(projectRoot, 'generator', generatedFile);
+        if (existsSync(potentialPath)) {
+          generatedFile = potentialPath;
+        } else {
+          generatedFile = null; // file not found, ignore
+        }
+      }
+
 
       resolve({
         code,
