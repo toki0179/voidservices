@@ -73,14 +73,38 @@ def run(playwright: Playwright) -> None:
         'bakllava:latest': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
         'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
     }
-    FORCE_PROMPT = (
-        'Keep every reply to a normal Discord message length: concise, direct, and usually under 3 short sentences. '
-        'Avoid bullet lists, long explanations, and essay-style responses unless the user explicitly asks for detail.'
-    )
-    BASE_PROMPT = ''  # Optionally load from env if desired
-    _preferred_server = {}
+    print("LOG:Selecting proxy for browser")
+    proxies = []
+    try:
+        # Try to read proxies from a text file exported by the Node.js proxyDb (fallback method)
+        with open('data/proxies.txt', 'r') as f:
+            proxies = [line.strip() for line in f if line.strip()]
+        print(f"LOG:Loaded {len(proxies)} proxies from data/proxies.txt")
+    except Exception as e:
+        print(f"LOG:Could not load proxies from file: {e}")
+    def proxy_works(proxy):
+        try:
+            import requests
+            resp = requests.get('https://discord.com', proxies={"http": f"http://{proxy}", "https": f"http://{proxy}"}, timeout=5)
+            return resp.status_code == 200
+        except Exception:
+            return False
+    working_proxies = []
+    for proxy in proxies:
+        if proxy_works(proxy):
+            working_proxies.append(proxy)
+    selected_proxy = None
+    if working_proxies:
+        import random
+        selected_proxy = random.choice(working_proxies)
+        print(f"LOG:Using proxy: {selected_proxy}")
+    else:
+        print("LOG:No working proxies found, running without proxy.")
+    launch_args = {"headless": False}
+    if selected_proxy:
+        launch_args["proxy"] = {"server": f"http://{selected_proxy}"}
     print("LOG:Launching browser")
-    browser = playwright.chromium.launch(headless=False)
+    browser = playwright.chromium.launch(**launch_args)
     print("LOG:Creating browser context")
     context = browser.new_context()
     name = "voidservices"
