@@ -171,7 +171,7 @@ export default {
       if (!logBuffer.trim()) return;
       const logLines = logBuffer.split(/\r?\n/).filter(line => line.startsWith('LOG:'));
       if (logLines.length) {
-        await sendLogDm(userId, client, `\${logLines.join('\n')}\`);
+          await sendLogDm(userId, client, `\`\`\`[Iteration: ${numberValue}]\n${logLines.join('\n')}\`\`\``);
       }
       logBuffer = '';
     };
