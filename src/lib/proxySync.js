@@ -15,10 +15,6 @@ const MAX_CANDIDATE_PROXIES = 800;
 const LOOKUP_CONCURRENCY = 20;
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-
-
-
-
 async function fetchTextWithTimeout(url) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -35,7 +31,7 @@ async function fetchTextWithTimeout(url) {
     clearTimeout(timeoutId);
   }
 }
-    for (const source of PROXY_SOURCES) {
+
 async function fetchJsonWithTimeout(url) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -75,7 +71,6 @@ function parseProxyEndpoint(proxy, source) {
   if (!validIp || !validPort) {
     return null;
   }
-}
 
   return {
     proxy: `${ip}:${port}`,
@@ -85,26 +80,23 @@ function parseProxyEndpoint(proxy, source) {
   };
 }
 
-// Removed isLikelyResidentialIp and related legacy code from residential proxy logic.
-      try {
-        const result = await syncProxyDatabase();
-        console.log(
-          `[proxy-sync] Completed: ${result.active}/${result.candidates} proxies active.`
-        );
-        if (typeof onRunCompleted === 'function') {
-          await onRunCompleted(result);
-        }
-      } catch (error) {
-        console.error('[proxy-sync] Failed:', error);
-        if (typeof onRunFailed === 'function') {
-          await onRunFailed(error);
-        }
-      }
-
-    void runSync();
-    return setInterval(() => {
-      void runSync();
-    }, DAILY_INTERVAL_MS);
+async function validateProxy(proxyInfo) {
+  const { ip, port } = proxyInfo;
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: ip, port, timeout: SOCKET_TIMEOUT_MS });
+    const onError = () => {
+      socket.destroy();
+      resolve(false);
+    };
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', onError);
+    socket.once('timeout', onError);
+    socket.setTimeout(SOCKET_TIMEOUT_MS);
+  });
+}
 
 async function mapWithConcurrency(items, limit, mapper) {
   const output = new Array(items.length);
@@ -223,6 +215,11 @@ export function startProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
         await onRunFailed(error);
       }
     }
-  }
+  };
+
+  // Run immediately and then schedule daily
   void runSync();
-};
+  return setInterval(() => {
+    void runSync();
+  }, DAILY_INTERVAL_MS);
+}
