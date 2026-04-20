@@ -189,7 +189,7 @@ def run(playwright: Playwright) -> None:
 
     # Get all available models and try each in order until one succeeds
     # Use a specific model (e.g., 'mistral:latest')
-    model_name = 'gemma2:2b'
+    model_name = 'qwen2.5:3b-instruct'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha with LLM model: {model_name}")
     # Build prompt: instruct model to output ONLY the answer
