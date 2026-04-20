@@ -104,9 +104,15 @@ def run(playwright: Playwright) -> None:
     # Screenshot captcha for manual solving
     path_name = f"captcha_{username}.png"
     page.locator("iframe[title=\"hCaptcha challenge\"]").screenshot(path=path_name)
-    # Convert the image to base64 for API submission
+    # Compress the image before base64 encoding
+    from PIL import Image
     import base64
-    with open(path_name, "rb") as img_file:
+    import io
+    compressed_path = f"captcha_{username}_compressed.jpg"
+    with Image.open(path_name) as img:
+        rgb_img = img.convert("RGB")
+        rgb_img.save(compressed_path, format="JPEG", quality=60)
+    with open(compressed_path, "rb") as img_file:
         img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
 
     model_name = 'bakllava:latest'
