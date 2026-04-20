@@ -47,6 +47,15 @@ def select_dropdown_with_arrows(page, dropdown_text: str, down_presses: int) -> 
     human_delay(0.2, 0.5)
 
 def run(playwright: Playwright) -> None:
+        # Utility: Token counting
+        def count_tokens(text):
+            try:
+                import tiktoken
+                enc = tiktoken.get_encoding('cl100k_base')
+                return len(enc.encode(text))
+            except ImportError:
+                # Fallback: estimate by word count (not accurate for LLMs, but better than nothing)
+                return len(text.split())
     client = OllamaFreeAPI()
     browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
@@ -126,6 +135,8 @@ def run(playwright: Playwright) -> None:
     # Use the first (fastest/closest) server
     server_url = servers[0]['url']
     prompt = f"Solve this puzzle and return the numerical answer only. Here is the captcha image in base64 format: {img_base64}"
+    token_count = count_tokens(prompt)
+    print(f"Prompt token estimate: {token_count}")
     # Use stream_chat for streaming logs and final output
     print("Streaming response from Ollama API:")
     stream = client.stream_chat(prompt, model=model_name, temperature=0.7, num_predict=16)
