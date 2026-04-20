@@ -1,5 +1,5 @@
 import net from 'node:net';
-import { getAllProxies, replaceProxies } from './proxyDb.js';
+import { getAllResidentialProxies, replaceResidentialProxies } from './proxyDb.js';
 
 const PROXY_SOURCES = [
   'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
@@ -150,12 +150,12 @@ async function fetchCandidateProxies() {
 }
 
 export async function syncProxyDatabase() {
-  const existingProxies = new Set(getAllProxies());
+  const existingProxies = new Set(getAllResidentialProxies());
   const candidates = await fetchCandidateProxies();
 
   if (candidates.length === 0) {
     const removed = existingProxies.size;
-    replaceProxies([]);
+    replaceResidentialProxies([]);
     return {
       candidates: 0,
       active: 0,
@@ -189,7 +189,7 @@ export async function syncProxyDatabase() {
     }
   }
 
-  replaceProxies(validProxies);
+  replaceResidentialProxies(validProxies);
 
   return {
     candidates: candidates.length,
@@ -199,7 +199,7 @@ export async function syncProxyDatabase() {
   };
 }
 
-export function startProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
+export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
   const runSync = async () => {
     try {
       const result = await syncProxyDatabase();
