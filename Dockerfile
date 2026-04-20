@@ -87,7 +87,9 @@ RUN python3 -m venv /opt/selfbot-venv \
         websocket-client \
         pydirectinput \
         pyautogui \
-        'setuptools<70.0.0'
+        playwright \
+        'setuptools<70.0.0' \
+    && /opt/generator-venv/bin/python -m playwright install --with-deps
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data /app/logs /app/data/generated
