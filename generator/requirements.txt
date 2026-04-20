@@ -11,4 +11,5 @@ playwright-stealth
 python-dotenv
 pillow
 pytesseract
+ollama
 tiktoken

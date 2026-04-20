@@ -13,7 +13,7 @@ import time
 import string
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
-from ollamafreeapi import OllamaFreeAPI
+from ollama import Client as OllamaClient
 
 def random_string(length: int) -> str:
     letters = string.ascii_lowercase
@@ -58,7 +58,9 @@ def select_dropdown_with_arrows(page, dropdown_text: str, down_presses: int) -> 
 
 def run(playwright: Playwright) -> None:
     import logging
-    client = OllamaFreeAPI()
+    # Use your own hosted Ollama server
+    OLLAMA_HOST = "http://78.46.88.140:11434/"
+    client = OllamaClient(host=OLLAMA_HOST)
     logger = logging.getLogger('generator')
     logging.basicConfig(level=logging.INFO)
     # Model to parameter mapping (copied from selfbot)
@@ -166,57 +168,29 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:OCR extracted text: {extracted_text.strip()}")
 
     # Get all available models and try each in order until one succeeds
-    available_models = client.list_models()
-    print(f"LOG:Available models: {available_models}")
-    answer = None
-    last_error = None
-    print("LOG:Solving captcha with LLM")
-    for model_name in available_models:
-        params = MODEL_PARAMS.get(model_name, {})
-        servers = client.get_model_servers(model_name)
-        print(f"LOG:Trying model: {model_name} with servers: {servers}")
-        if not servers:
-            logger.warning(f"No servers found for model {model_name}, skipping.")
-            continue
-        preferred_url = _preferred_server.get(model_name)
-        if preferred_url:
-            servers.sort(key=lambda server: server.get('url') != preferred_url)
-        import random as _random
-        _random.shuffle(servers)
-        # Build prompt: instruct model to output ONLY the answer
-        full_prompt = (
-            "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
-            "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
-            f"Captcha: {extracted_text.strip()}"
-        )
-        token_count = count_tokens(full_prompt)
-        print(f"LOG:Prompt token estimate: {token_count}")
-        for server in servers:
-            url = server.get('url')
-            if not url:
-                continue
-            try:
-                from ollama import Client as OllamaClient
-                client_ollama = OllamaClient(host=url, timeout=15)
-                request = client.generate_api_request(model=model_name, prompt=full_prompt, **params)
-                request['stream'] = False
-                response = client_ollama.generate(**request)
-                text = getattr(response, 'response', None)
-                if not text and isinstance(response, dict):
-                    text = response.get('response')
-                if text:
-                    _preferred_server[model_name] = url
-                    answer = text.strip()
-                    print(f"LOG:Model {model_name} succeeded with server {url}")
-                    break
-                last_error = RuntimeError('Empty response body from upstream server')
-            except Exception as server_error:
-                last_error = server_error
-                print(f"LOG:Server {url} for model {model_name} failed: {server_error}")
+    # Use a specific model (e.g., 'mistral:latest')
+    model_name = 'gemma3:1b'
+    params = MODEL_PARAMS.get(model_name, {})
+    print(f"LOG:Solving captcha with LLM model: {model_name}")
+    # Build prompt: instruct model to output ONLY the answer
+    full_prompt = (
+        "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
+        "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
+        f"Captcha: {extracted_text.strip()}"
+    )
+    token_count = count_tokens(full_prompt)
+    print(f"LOG:Prompt token estimate: {token_count}")
+    try:
+        response = client.generate(model=model_name, prompt=full_prompt, **params)
+        answer = response.get('response') if isinstance(response, dict) else getattr(response, 'response', None)
         if answer:
-            break
-    if not answer:
-        print(f"LOG:All models and servers failed. Last error: {last_error}")
+            answer = answer.strip()
+            print(f"LOG:Model {model_name} succeeded with answer: {answer}")
+        else:
+            print("LOG:No answer returned from model.")
+            answer = "I couldn't generate a response right now."
+    except Exception as e:
+        print(f"LOG:Ollama server error: {e}")
         answer = "I couldn't generate a response right now."
     print(f"LOG:Final answer: {answer}")
     # Loop to handle multi-page captchas
