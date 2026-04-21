@@ -48,6 +48,7 @@ async function sendLogDm(userId, client, message, attachments = []) {
   try {
     const user = await client.users.fetch(userId);
     await user.send({ content: finalMessage, files: attachments });
+    console.log(`[sendLogDm] Sent DM to ${userId} with ${attachments.length} attachment(s)`);
   } catch (error) {
     console.error(`[sendLogDm] Failed to send DM to ${userId}:`, error);
   }
@@ -123,14 +124,17 @@ function runPython(numberValue, onLog) {
       let generatedFile = null;
       let screenshotFile = null;
       
-      // Flexible regex: allows optional space after LOG:
+      // Flexible regex for credentials
       const credsMatch = stdout.match(/LOG:?\s*Credentials saved to (.+)/);
       if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
       
+      // Flexible regex for screenshot
       const screenshotMatch = stdout.match(/LOG:?\s*Screenshot saved to (.+)/);
       if (screenshotMatch && screenshotMatch[1]) {
         screenshotFile = screenshotMatch[1].trim();
         console.log(`[DEBUG] Captured screenshot path: ${screenshotFile}`);
+      } else {
+        console.log(`[DEBUG] No screenshot path found in stdout`);
       }
       
       resolve({
@@ -218,54 +222,65 @@ export default {
         return;
       }
 
+      // Give the filesystem a moment to fully flush (especially important in containers)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       let attachments = [];
       let attachmentMsg = [];
       
+      // Helper to find a file by trying multiple possible paths
+      function findFile(basePath, filename) {
+        const candidates = [
+          basePath,                                          // exact as given
+          path.join(projectRoot, basePath),                  // relative to project root
+          path.join(projectRoot, 'generator', path.basename(basePath)), // inside generator/ folder
+          path.join(projectRoot, path.basename(basePath)),   // just filename in project root
+        ];
+        // Also try with the filename only
+        if (filename) {
+          candidates.push(path.join(projectRoot, 'generator', filename));
+          candidates.push(path.join(projectRoot, filename));
+        }
+        for (const candidate of candidates) {
+          console.log(`[DEBUG] Trying path: ${candidate}`);
+          if (existsSync(candidate)) {
+            console.log(`[DEBUG] Found at: ${candidate}`);
+            return candidate;
+          }
+        }
+        return null;
+      }
+      
       // Handle credentials file
       if (result.generatedFile) {
-        const filePath = path.isAbsolute(result.generatedFile) 
-          ? result.generatedFile 
-          : path.join(projectRoot, result.generatedFile);
-        console.log(`[DEBUG] Looking for credentials at: ${filePath}`);
-        if (existsSync(filePath)) {
-          const fileContent = readFileSync(filePath, 'utf-8');
+        const found = findFile(result.generatedFile, null);
+        if (found) {
+          const fileContent = readFileSync(found, 'utf-8');
           attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
-            name: path.basename(result.generatedFile),
+            name: path.basename(found),
           }));
-          attachmentMsg.push(`credentials file: ${path.basename(result.generatedFile)}`);
+          attachmentMsg.push(`credentials file: ${path.basename(found)}`);
         } else {
-          console.warn(`[gen.js] Credentials file not found: ${filePath}`);
+          console.warn(`[gen.js] Credentials file not found: ${result.generatedFile}`);
         }
       }
       
       // Handle screenshot file
       if (result.screenshotFile) {
-        let screenshotPath = result.screenshotFile;
-        if (!path.isAbsolute(screenshotPath)) {
-          screenshotPath = path.join(projectRoot, screenshotPath);
-        }
-        console.log(`[DEBUG] Looking for screenshot at: ${screenshotPath}`);
-        
-        if (existsSync(screenshotPath)) {
-          const stats = statSync(screenshotPath);
-          console.log(`[DEBUG] Screenshot found, size: ${stats.size} bytes`);
-          attachments.push(new AttachmentBuilder(screenshotPath));
-          attachmentMsg.push(`screenshot: ${path.basename(screenshotPath)}`);
+        const filename = path.basename(result.screenshotFile);
+        const found = findFile(result.screenshotFile, filename);
+        if (found) {
+          const stats = statSync(found);
+          console.log(`[DEBUG] Screenshot size: ${stats.size} bytes`);
+          attachments.push(new AttachmentBuilder(found));
+          attachmentMsg.push(`screenshot: ${path.basename(found)}`);
         } else {
-          console.error(`[DEBUG] Screenshot file NOT FOUND: ${screenshotPath}`);
-          // Try alternative: maybe just the filename in generator folder
-          const altPath = path.join(projectRoot, 'generator', path.basename(screenshotPath));
-          console.log(`[DEBUG] Trying alternative path: ${altPath}`);
-          if (existsSync(altPath)) {
-            console.log(`[DEBUG] Found at alternative path!`);
-            attachments.push(new AttachmentBuilder(altPath));
-            attachmentMsg.push(`screenshot: ${path.basename(altPath)}`);
-          } else {
-            const genDir = path.join(projectRoot, 'generator');
-            if (existsSync(genDir)) {
-              const files = readdirSync(genDir);
-              console.log(`[DEBUG] Files in generator/: ${files.join(', ')}`);
-            }
+          console.error(`[DEBUG] Screenshot file NOT FOUND after trying all candidates`);
+          // List contents of generator folder for debugging
+          const genDir = path.join(projectRoot, 'generator');
+          if (existsSync(genDir)) {
+            const files = readdirSync(genDir);
+            console.log(`[DEBUG] Files in generator/: ${files.join(', ')}`);
           }
         }
       }
@@ -279,6 +294,7 @@ export default {
     } catch (error) {
       clearInterval(logInterval);
       await flushLogs();
+      console.error(`[gen.js] Error:`, error);
       await interaction.editReply(`❌ Failed to launch Python process: ${error.message}`);
     }
   },
