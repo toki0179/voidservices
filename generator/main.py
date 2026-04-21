@@ -233,7 +233,7 @@ def run(playwright: Playwright) -> None:
 
     # Get all available models and try each in order until one succeeds
     # Use a specific model (e.g., 'mistral:latest')
-    model_name = 'gemma3:4b'
+    model_name = 'qwen3.5:2b'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha")
     # Build prompt: instruct model to output ONLY the answer
