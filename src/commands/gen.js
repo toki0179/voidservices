@@ -195,14 +195,23 @@ export default {
         content: `🚀 Generation started with **${numberValue}** iterations. Sending logs via DM…\n*Check your DMs for real‑time progress.*`,
       });
 
-      const result = await runPython(numberValue, onLog);
+      let result;
+      let attempt = 0;
+      const maxAttempts = 10; // Prevent infinite loops
+      do {
+        attempt++;
+        if (attempt > 1) {
+          await sendLogDm(userId, client, `Retrying iteration (attempt ${attempt}) due to previous failure...`);
+        }
+        result = await runPython(numberValue, onLog);
+      } while (result.code !== 0 && attempt < maxAttempts);
 
       clearInterval(logInterval);
       await flushLogs();
 
       if (result.code !== 0) {
         await interaction.editReply(
-          `⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''}.\nCheck your DMs for complete logs.`
+          `⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''} after ${attempt} attempts.\nCheck your DMs for complete logs.`
         );
         return;
       }
