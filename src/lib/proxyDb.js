@@ -86,3 +86,6 @@ export function getResidentialProxyCount() {
   const result = stmt.get();
   return result?.count ?? 0;
 }
+
+// Alias for compatibility
+export const getAllProxies = getAllResidentialProxies;
