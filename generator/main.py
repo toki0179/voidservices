@@ -206,7 +206,7 @@ def run(playwright: Playwright) -> None:
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha")
     full_prompt = (
-        "You are solving a puzzle. Output ONLY the full answer, with no explanation. only 1 word, or string of numbers, nothing else at all.\n"
+        "You are solving a puzzle. Do not provide reasoning, one word answer only. With no explanation or reasoning.\n"
         f"Captcha: {extracted_text.strip()}"
     )
     try:
