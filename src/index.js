@@ -128,7 +128,7 @@ client.once(Events.ClientReady, (readyClient) => {
         }
 
         const embed = new EmbedBuilder()
-          .setTitle('Residential Proxy Restock Complete')
+          .setTitle('Proxy Restock Complete')
           .setColor(0x2b8a3e)
           .addFields(
             { name: 'Restocked', value: String(result.restocked), inline: true },
