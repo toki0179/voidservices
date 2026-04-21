@@ -150,19 +150,12 @@ async function fetchCandidateProxies() {
 }
 
 export async function syncProxyDatabase() {
-  // FIX: await the async function and ensure result is an array
-  let existingProxiesList = await getAllResidentialProxies();
-  if (!existingProxiesList || typeof existingProxiesList[Symbol.iterator] !== 'function') {
-    console.warn('[proxy-sync] getAllResidentialProxies returned non-iterable, using empty array');
-    existingProxiesList = [];
-  }
-  const existingProxies = new Set(existingProxiesList);
-
+  const existingProxies = new Set(getAllResidentialProxies());
   const candidates = await fetchCandidateProxies();
 
   if (candidates.length === 0) {
     const removed = existingProxies.size;
-    await replaceResidentialProxies([]); // FIX: added await
+    replaceResidentialProxies([]);
     return {
       candidates: 0,
       active: 0,
@@ -196,7 +189,7 @@ export async function syncProxyDatabase() {
     }
   }
 
-  await replaceResidentialProxies(validProxies); // FIX: added await
+  replaceResidentialProxies(validProxies);
 
   return {
     candidates: candidates.length,
@@ -206,7 +199,7 @@ export async function syncProxyDatabase() {
   };
 }
 
-export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
+export function startProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
   const runSync = async () => {
     try {
       const result = await syncProxyDatabase();

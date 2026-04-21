@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 load_dotenv()
 from accounts_db import init_accounts_db, insert_account
+proxy = 'http://toki0179-rotate:bossandy12@p.webshare.io:80/'
+
 
 def count_tokens(text):
     try:
@@ -82,7 +84,6 @@ def run(playwright: Playwright) -> None:
     BASE_PROMPT = ''  # Optionally load from env if desired
     _preferred_server = {}
     import os
-    proxy = 'http://toki0179-rotate:bossandy12@p.webshare.io:80/'
     print(f"LOG:Launching browser (proxy=rotating residential)")
     launch_args = {}
     if proxy:
