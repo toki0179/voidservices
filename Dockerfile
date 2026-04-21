@@ -44,6 +44,7 @@ RUN apt-get update \
         libgbm1 \
         tesseract-ocr \
         libtesseract-dev \
+        libpq-dev \
     && rm -rf /var/lib/apt/lists/
 
 # Install Chromium v120 with architecture-aware snapshot packages
@@ -65,10 +66,10 @@ RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
 # Verify Chromium installation
 RUN chromium --version || chromium-browser --version
     
+
 # Install production dependencies directly in target image/arch
 COPY package.json package-lock.json ./
-RUN npm ci --only=production \
-    && npm rebuild better-sqlite3 --build-from-source
+RUN npm ci --only=production
 
 # Copy application code
 COPY . .
@@ -76,10 +77,12 @@ COPY . .
 # Create isolated Python environments for selfbot and generator dependencies
 RUN python3 -m venv /opt/selfbot-venv \
     && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt \
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir psycopg2-binary \
     && python3 -m venv /opt/generator-venv \
     && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
     && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
     && /opt/generator-venv/bin/pip install --no-cache-dir -r /app/generator/requirements.txt \
+    && /opt/generator-venv/bin/pip install --no-cache-dir psycopg2-binary \
     && /opt/generator-venv/bin/python -m playwright install --with-deps
 
 # Create data directory for SQLite database

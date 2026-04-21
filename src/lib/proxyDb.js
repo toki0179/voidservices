@@ -1,83 +1,60 @@
-import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = process.env.PROXY_DB_PATH || path.join(__dirname, '..', '..', 'data', 'proxies.db');
+import pkg from 'pg';
+const { Pool } = pkg;
 
-let db;
-let initializationError;
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
+  user: process.env.DB_USER || 'voiduser',
+  password: process.env.DB_PASSWORD || 'voidpass',
+  database: process.env.DB_NAME || 'voidservices',
+});
 
-function initialize() {
-  if (db) {
-    return db;
-  }
-
-  if (initializationError) {
-    throw initializationError;
-  }
-
-  try {
-    mkdirSync(path.dirname(dbPath), { recursive: true });
-    db = new Database(dbPath);
-
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS residential_proxies (
-        proxy TEXT PRIMARY KEY,
-        ip TEXT NOT NULL,
-        port INTEGER NOT NULL,
-        source TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_residential_proxies_ip ON residential_proxies(ip);
-    `);
-  } catch (error) {
-    initializationError = new Error(`Proxy database initialization failed: ${error.message}`);
-    throw initializationError;
-  }
-
-  return db;
-}
-
-function getDb() {
-  if (!db) {
-    initialize();
-  }
-
-  return db;
-}
-
-export function replaceResidentialProxies(proxies) {
-  const database = getDb();
-  const deleteStmt = database.prepare('DELETE FROM residential_proxies');
-  const insertStmt = database.prepare(`
-    INSERT INTO residential_proxies (proxy, ip, port, source, updated_at)
-    VALUES (@proxy, @ip, @port, @source, CURRENT_TIMESTAMP)
-    ON CONFLICT(proxy) DO UPDATE SET
-      ip = excluded.ip,
-      port = excluded.port,
-      source = excluded.source,
-      updated_at = CURRENT_TIMESTAMP
+async function initProxyTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS residential_proxies (
+      proxy TEXT PRIMARY KEY,
+      ip TEXT NOT NULL,
+      port INTEGER NOT NULL,
+      source TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
-
-  const transaction = database.transaction((items) => {
-    deleteStmt.run();
-    for (const item of items) {
-      insertStmt.run(item);
-    }
-  });
-
-  transaction(proxies);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_residential_proxies_ip ON residential_proxies(ip);`);
 }
 
-export function getAllResidentialProxies() {
-  const database = getDb();
-  const stmt = database.prepare('SELECT proxy FROM residential_proxies ORDER BY proxy ASC');
-  return stmt.all().map((row) => row.proxy);
+export async function replaceResidentialProxies(proxies) {
+  await initProxyTable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM residential_proxies');
+    for (const item of proxies) {
+      await client.query(
+        `INSERT INTO residential_proxies (proxy, ip, port, source, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+         ON CONFLICT (proxy) DO UPDATE SET
+           ip = EXCLUDED.ip,
+           port = EXCLUDED.port,
+           source = EXCLUDED.source,
+           updated_at = CURRENT_TIMESTAMP`,
+        [item.proxy, item.ip, item.port, item.source]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getAllResidentialProxies() {
+  await initProxyTable();
+  const res = await pool.query('SELECT proxy FROM residential_proxies ORDER BY proxy ASC');
+  return res.rows.map(row => row.proxy);
 }
 
 export function getResidentialProxyCount() {

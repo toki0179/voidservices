@@ -1,81 +1,49 @@
-import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = process.env.TOKEN_DB_PATH || path.join(__dirname, '..', '..', 'data', 'tokens.db');
+import pkg from 'pg';
+const { Pool } = pkg;
 
-let db;
-let initializationError;
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
+  user: process.env.DB_USER || 'voiduser',
+  password: process.env.DB_PASSWORD || 'voidpass',
+  database: process.env.DB_NAME || 'voidservices',
+});
 
-function initialize() {
-	if (db) {
-		return db;
-	}
-
-	if (initializationError) {
-		throw initializationError;
-	}
-
-	try {
-		mkdirSync(path.dirname(dbPath), { recursive: true });
-		db = new Database(dbPath);
-
-		db.exec(`
-		CREATE TABLE IF NOT EXISTS selfbot_tokens (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id TEXT UNIQUE NOT NULL,
-			token TEXT NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_user_id ON selfbot_tokens(user_id);
-	`);
-	} catch (error) {
-		initializationError = new Error(`Token database initialization failed: ${error.message}`);
-		throw initializationError;
-	}
-
-	return db;
+async function initTokenTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS selfbot_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT UNIQUE NOT NULL,
+      token TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_id ON selfbot_tokens(user_id);`);
 }
 
-function getDb() {
-	if (!db) {
-		initialize();
-	}
-
-	return db;
+export async function saveToken(userId, token) {
+  await initTokenTable();
+  await pool.query(
+    `INSERT INTO selfbot_tokens (user_id, token, updated_at)
+     VALUES ($1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id) DO UPDATE SET
+       token = EXCLUDED.token,
+       updated_at = CURRENT_TIMESTAMP`,
+    [userId, token]
+  );
 }
 
-export function saveToken(userId, token) {
-	const database = getDb();
-	const stmt = database.prepare(`
-		INSERT INTO selfbot_tokens (user_id, token)
-		VALUES (?, ?)
-		ON CONFLICT(user_id) DO UPDATE SET
-			token = excluded.token,
-			updated_at = CURRENT_TIMESTAMP
-	`);
-
-	return stmt.run(userId, token);
+export async function getToken(userId) {
+  await initTokenTable();
+  const res = await pool.query('SELECT token FROM selfbot_tokens WHERE user_id = $1', [userId]);
+  return res.rows.length ? res.rows[0].token : null;
 }
 
-export function getToken(userId) {
-	const database = getDb();
-	const stmt = database.prepare('SELECT token FROM selfbot_tokens WHERE user_id = ?');
-	const result = stmt.get(userId);
-
-	return result ? result.token : null;
-}
-
-export function deleteToken(userId) {
-	const database = getDb();
-	const stmt = database.prepare('DELETE FROM selfbot_tokens WHERE user_id = ?');
-
-	return stmt.run(userId);
+export async function deleteToken(userId) {
+  await initTokenTable();
+  await pool.query('DELETE FROM selfbot_tokens WHERE user_id = $1', [userId]);
 }
 
 export function hasToken(userId) {

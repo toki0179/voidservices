@@ -1,4 +1,16 @@
 services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: voidservices
+      POSTGRES_USER: voiduser
+      POSTGRES_PASSWORD: voidpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   voidservices-bot:
     image: ${BOT_IMAGE:-ghcr.io/toki0179/voidservices:latest}
     restart: unless-stopped
@@ -14,6 +26,11 @@ services:
       GUILD_ID: ${GUILD_ID:-}
       TOKEN_DB_PATH: ${TOKEN_DB_PATH:-/app/data/tokens.db}
       NODE_ENV: production
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: voidservices
+      DB_USER: voiduser
+      DB_PASSWORD: voidpass
     volumes:
       - voidservices_data:/app/data
       - voidservices_logs:/app/logs
@@ -48,9 +65,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+
 volumes:
   voidservices_data:
   voidservices_logs:
+  pgdata:
 
 networks:
   npm-bridge:
