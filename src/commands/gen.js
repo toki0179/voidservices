@@ -124,17 +124,13 @@ function runPython(numberValue, onLog) {
       let generatedFile = null;
       let screenshotFile = null;
       
-      // Flexible regex for credentials
       const credsMatch = stdout.match(/LOG:?\s*Credentials saved to (.+)/);
       if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
       
-      // Flexible regex for screenshot
       const screenshotMatch = stdout.match(/LOG:?\s*Screenshot saved to (.+)/);
       if (screenshotMatch && screenshotMatch[1]) {
         screenshotFile = screenshotMatch[1].trim();
         console.log(`[DEBUG] Captured screenshot path: ${screenshotFile}`);
-      } else {
-        console.log(`[DEBUG] No screenshot path found in stdout`);
       }
       
       resolve({
@@ -215,43 +211,33 @@ export default {
       clearInterval(logInterval);
       await flushLogs();
 
-      if (result.code !== 0) {
-        await interaction.editReply(
-          `⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''} after ${attempt} attempts.\nCheck your DMs for complete logs.`
-        );
-        return;
-      }
-
-      // Give the filesystem a moment to fully flush (especially important in containers)
+      // Give filesystem a moment
       await new Promise(resolve => setTimeout(resolve, 500));
 
       let attachments = [];
       let attachmentMsg = [];
       
-      // Helper to find a file by trying multiple possible paths
       function findFile(basePath, filename) {
         const candidates = [
-          basePath,                                          // exact as given
-          path.join(projectRoot, basePath),                  // relative to project root
-          path.join(projectRoot, 'generator', path.basename(basePath)), // inside generator/ folder
-          path.join(projectRoot, path.basename(basePath)),   // just filename in project root
+          basePath,
+          path.join(projectRoot, basePath),
+          path.join(projectRoot, 'generator', path.basename(basePath)),
+          path.join(projectRoot, path.basename(basePath)),
         ];
-        // Also try with the filename only
         if (filename) {
           candidates.push(path.join(projectRoot, 'generator', filename));
           candidates.push(path.join(projectRoot, filename));
         }
         for (const candidate of candidates) {
-          console.log(`[DEBUG] Trying path: ${candidate}`);
           if (existsSync(candidate)) {
-            console.log(`[DEBUG] Found at: ${candidate}`);
+            console.log(`[DEBUG] Found file at: ${candidate}`);
             return candidate;
           }
         }
         return null;
       }
       
-      // Handle credentials file
+      // Credentials file (if any)
       if (result.generatedFile) {
         const found = findFile(result.generatedFile, null);
         if (found) {
@@ -260,12 +246,10 @@ export default {
             name: path.basename(found),
           }));
           attachmentMsg.push(`credentials file: ${path.basename(found)}`);
-        } else {
-          console.warn(`[gen.js] Credentials file not found: ${result.generatedFile}`);
         }
       }
       
-      // Handle screenshot file
+      // Screenshot file – try even if process failed
       if (result.screenshotFile) {
         const filename = path.basename(result.screenshotFile);
         const found = findFile(result.screenshotFile, filename);
@@ -275,8 +259,7 @@ export default {
           attachments.push(new AttachmentBuilder(found));
           attachmentMsg.push(`screenshot: ${path.basename(found)}`);
         } else {
-          console.error(`[DEBUG] Screenshot file NOT FOUND after trying all candidates`);
-          // List contents of generator folder for debugging
+          console.error(`[DEBUG] Screenshot not found: ${result.screenshotFile}`);
           const genDir = path.join(projectRoot, 'generator');
           if (existsSync(genDir)) {
             const files = readdirSync(genDir);
@@ -285,12 +268,17 @@ export default {
         }
       }
       
+      // Send attachments if any
       if (attachments.length) {
-        await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations. ${attachmentMsg.join(' and ')} sent via DM.`);
+        await interaction.editReply(`✅ Generation ${result.code === 0 ? 'complete' : 'finished with warnings'} (exit code ${result.code}). ${attachmentMsg.join(' and ')} sent via DM.`);
         await sendLogDm(userId, client, `Generated ${attachmentMsg.join(' and ')}`, attachments);
-        return;
+      } else {
+        if (result.code !== 0) {
+          await interaction.editReply(`⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''} after ${attempt} attempts.\nNo files were generated. Check DMs for logs.`);
+        } else {
+          await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
+        }
       }
-      await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
     } catch (error) {
       clearInterval(logInterval);
       await flushLogs();
