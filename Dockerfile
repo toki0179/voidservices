@@ -85,6 +85,9 @@ RUN python3 -m venv /opt/selfbot-venv \
 # Create data directory for SQLite database
 RUN mkdir -p /app/data /app/logs /app/data/generated
 
+# Ensure data directory is writable by all users (fixes SQLite access issues)
+RUN chmod -R 777 /app/data
+
 # Persist runtime state across container/image updates
 VOLUME ["/app/data", "/app/logs"]
 
