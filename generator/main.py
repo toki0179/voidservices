@@ -202,11 +202,11 @@ def run(playwright: Playwright) -> None:
     extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
     print(f"LOG:OCR extracted text: {extracted_text.strip()}")
 
-    model_name = 'phi3.5:latest'
+    model_name = 'deepseek-r1:7b'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha")
     full_prompt = (
-        "You are solving a puzzle. Output ONLY the full answer, with no explanation.\n"
+        "You are solving a puzzle. Output ONLY the full answer, with no explanation. only 1 word, or string of numbers, nothing else at all.\n"
         f"Captcha: {extracted_text.strip()}"
     )
     try:
