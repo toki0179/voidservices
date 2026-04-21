@@ -67,11 +67,12 @@ RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
 RUN chromium --version || chromium-browser --version
     
 
-# Install production dependencies directly in target image/arch
-COPY package.json package-lock.json ./
-RUN npm ci --only=production
+# Copy only package.json and package-lock.json for dependency caching
+COPY package*.json ./
+# Install dependencies using npm ci for speed and reproducibility
+RUN npm ci --omit=dev
 
-# Copy application code
+# Copy the rest of the application code
 COPY . .
 
 # Create isolated Python environments for selfbot and generator dependencies
