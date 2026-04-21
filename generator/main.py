@@ -82,11 +82,11 @@ def run(playwright: Playwright) -> None:
     BASE_PROMPT = ''  # Optionally load from env if desired
     _preferred_server = {}
     import os
-    proxy = os.environ.get('GEN_PROXY')
-    print(f"LOG:Launching browser (proxy={proxy})")
+    proxy = 'http://toki0179-rotate:bossandy12@p.webshare.io:80/'
+    print(f"LOG:Launching browser (proxy=rotating residential)")
     launch_args = {}
     if proxy:
-        launch_args['proxy'] = { 'server': f'http://{proxy}' }
+        launch_args['proxy'] = { 'server': f'{proxy}' }
     browser = playwright.chromium.launch(headless=False, **launch_args)
     print("LOG:Creating browser context")
     context = browser.new_context()
