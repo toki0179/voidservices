@@ -122,8 +122,8 @@ function runPython(numberValue, onLog) {
       if (stderrBuffer && onLog) onLog(stderrBuffer, 'stderr');
 
       let generatedFile = null;
+      let screenshotFile = null;
       // look for a log that looks like LOG: Credentials saved to {credentials_filename}
-      
       const credsMatch = stdout.match(/LOG:Credentials saved to (.+)/);
       if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
       // If 2 groups, the second is the filename, but we should combine them for with / if needed
@@ -131,12 +131,16 @@ function runPython(numberValue, onLog) {
       if (credsMatch2 && credsMatch2[1] && credsMatch2[2]) {
         generatedFile = path.join(credsMatch2[1].trim(), credsMatch2[2].trim());
       }
+      // Look for screenshot log
+      const screenshotMatch = stdout.match(/LOG:Screenshot saved to ([^\s]+)/);
+      if (screenshotMatch && screenshotMatch[1]) screenshotFile = screenshotMatch[1].trim();
       resolve({
         code,
         signal,
         stdout: trimOutput(stdout),
         stderr: trimOutput(stderr),
         generatedFile,
+        screenshotFile,
       });
     });
   });
@@ -216,18 +220,25 @@ export default {
         return;
       }
 
+      let attachments = [];
+      let attachmentMsg = [];
       if (result.generatedFile && existsSync(result.generatedFile)) {
         const filePath = path.join(projectRoot, result.generatedFile);
         const fileContent = readFileSync(filePath, 'utf-8');
-        const attachment = new AttachmentBuilder(Buffer.from(fileContent), {
+        attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
           name: path.basename(result.generatedFile),
-        });
-
-        await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations. Credentials file sent via DM.`);
-        await sendLogDm(userId, client, `Generated credentials file: ${path.basename(result.generatedFile)}`, [attachment]);
+        }));
+        attachmentMsg.push(`credentials file: ${path.basename(result.generatedFile)}`);
+      }
+      if (result.screenshotFile && existsSync(result.screenshotFile)) {
+        attachments.push(new AttachmentBuilder(result.screenshotFile));
+        attachmentMsg.push(`screenshot: ${path.basename(result.screenshotFile)}`);
+      }
+      if (attachments.length) {
+        await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations. ${attachmentMsg.join(' and ')} sent via DM.`);
+        await sendLogDm(userId, client, `Generated ${attachmentMsg.join(' and ')}`, attachments);
         return;
       }
-
       await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
     } catch (error) {
       clearInterval(logInterval);

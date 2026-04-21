@@ -180,21 +180,11 @@ def run(playwright: Playwright) -> None:
         except Exception as e:
             print(f"LOG:Error checking field {locator}: {e}")
 
+
     print("LOG:Clicking create account button")
     # Create Account button
     create_btn = page.get_by_role("button", name="Create Account")
     human_move_and_click(page, create_btn)
-
-     # Handle rate limiting
-    print("LOG:Checking for rate limiting")
-    if page.locator("text=You are being rate limited").is_visible():
-        print("LOG:Rate limit detected, waiting 60 seconds...")
-        page.wait_for_timeout(60000)
-        print("LOG:Rate limited – please run the script again manually.")
-        print("LOG:Closing browser due to rate limit")
-        context.close()
-        browser.close()
-        return
 
     print("LOG:Waiting for hCaptcha to load")
     # Wait for hCaptcha to load
@@ -319,8 +309,26 @@ def run(playwright: Playwright) -> None:
             print("LOG:Captcha challenge complete or iframe gone")
             break
 
+    # After captcha solver, check for rate limiting
+    print("LOG:Checking for rate limiting")
+    if page.locator("text=You are being rate limited").is_visible():
+        print("LOG:Rate limit detected, waiting 60 seconds...")
+        page.wait_for_timeout(60000)
+        print("LOG:Rate limited – please run the script again manually.")
+        print("LOG:Closing browser due to rate limit")
+        context.close()
+        browser.close()
+        return
+
     # Wait for successful redirect
     print("LOG:Waiting for successful redirect after registration")
+    # Take a screenshot after captcha challenge complete
+    try:
+        screenshot_path = f"final_{username}.png"
+        page.screenshot(path=screenshot_path, full_page=True)
+        print(f"LOG:Screenshot saved to {screenshot_path}")
+    except Exception as e:
+        print(f"LOG:Failed to take screenshot: {e}")
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
