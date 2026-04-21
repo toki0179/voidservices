@@ -72,19 +72,28 @@ COPY package*.json ./
 # Install dependencies using npm ci for speed and reproducibility
 RUN npm ci --omit=dev
 
-# Copy the rest of the application code
-COPY . .
 
-# Create isolated Python environments for selfbot and generator dependencies
+# Copy Python requirements files first for better caching
+COPY selfbot/requirements.txt ./selfbot/requirements.txt
+COPY generator/requirements.txt ./generator/requirements.txt
+COPY generator/requirements-postgres.txt ./generator/requirements-postgres.txt
+COPY selfbot/requirements-postgres.txt ./selfbot/requirements-postgres.txt
+
+# Install Python dependencies in dedicated layers for caching
 RUN python3 -m venv /opt/selfbot-venv \
-    && /opt/selfbot-venv/bin/pip install --no-cache-dir -r /app/selfbot/requirements.txt \
-    && /opt/selfbot-venv/bin/pip install --no-cache-dir psycopg2-binary \
-    && python3 -m venv /opt/generator-venv \
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir -r ./selfbot/requirements.txt \
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir -r ./selfbot/requirements-postgres.txt \
+    && /opt/selfbot-venv/bin/pip install --no-cache-dir psycopg2-binary
+RUN python3 -m venv /opt/generator-venv \
     && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/generator-venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/generator-venv/bin/pip install --no-cache-dir -r /app/generator/requirements.txt \
+    && /opt/generator-venv/bin/pip install --no-cache-dir -r ./generator/requirements.txt \
+    && /opt/generator-venv/bin/pip install --no-cache-dir -r ./generator/requirements-postgres.txt \
     && /opt/generator-venv/bin/pip install --no-cache-dir psycopg2-binary \
     && /opt/generator-venv/bin/python -m playwright install --with-deps
+
+# Copy the rest of the application code
+COPY . .
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data /app/logs /app/data/generated

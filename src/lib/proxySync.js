@@ -150,7 +150,16 @@ async function fetchCandidateProxies() {
 }
 
 export async function syncProxyDatabase() {
-  const existingProxies = new Set(getAllResidentialProxies());
+  let existingProxiesList = await getAllResidentialProxies();
+  if (!Array.isArray(existingProxiesList)) {
+    console.warn('[proxy-sync] getAllResidentialProxies returned non-array:', existingProxiesList);
+    try {
+      existingProxiesList = Array.from(existingProxiesList || []);
+    } catch (e) {
+      existingProxiesList = [];
+    }
+  }
+  const existingProxies = new Set(existingProxiesList);
   const candidates = await fetchCandidateProxies();
 
   if (candidates.length === 0) {

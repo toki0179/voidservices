@@ -33,7 +33,17 @@ build/
 # Python
 __pycache__
 *.pyc
-venv/
+*.egg-info/
+*.egg
+*.bak
+*.pyo
+*.pyd
+selfbot/venv/
+env/
+build/
+dist/
+tmp/
+*.tmp
 env/
 .Python
 
