@@ -27,15 +27,24 @@ def human_delay(min_sec: float = 0.3, max_sec: float = 0.8) -> None:
     time.sleep(random.uniform(min_sec, max_sec))
 
 def human_move_and_click(page, element, offset: int = 5) -> None:
-    box = element.bounding_box()
-    if box:
-        x = box['x'] + random.uniform(offset, box['width'] - offset)
-        y = box['y'] + random.uniform(offset, box['height'] - offset)
-        page.mouse.move(x, y)
-        human_delay(0.1, 0.3)
-        page.mouse.click(x, y)
-    else:
-        element.click()
+    try:
+        # Wait for element to be visible before interacting
+        element.wait_for(state="visible", timeout=10000)
+        box = element.bounding_box()
+        if box:
+            x = box['x'] + random.uniform(offset, box['width'] - offset)
+            y = box['y'] + random.uniform(offset, box['height'] - offset)
+            page.mouse.move(x, y)
+            human_delay(0.1, 0.3)
+            page.mouse.click(x, y)
+        else:
+            element.click()
+    except Exception as e:
+        print(f"LOG: [human_move_and_click] Fallback to .click() due to: {e}")
+        try:
+            element.click()
+        except Exception as e2:
+            print(f"LOG: [human_move_and_click] .click() also failed: {e2}")
 
 def human_type(page, locator, text, delay_range: tuple = (0.05, 0.2)) -> None:
     human_move_and_click(page, locator)
