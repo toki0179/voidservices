@@ -102,9 +102,10 @@ def run(playwright: Playwright) -> None:
         launch_args['proxy'] = { 'server': proxy_url }
     browser = playwright.chromium.launch(headless=False, **launch_args)
     print("LOG:Creating browser context")
-    context = browser.new_context()
     if proxy_username and proxy_password:
-        context.authenticate({"username": proxy_username, "password": proxy_password})
+        context = browser.new_context(http_credentials={"username": proxy_username, "password": proxy_password})
+    else:
+        context = browser.new_context()
     name = "voidservices"
     username = f"voidserv_{random_string(5)}"
     password = random_string(10)
