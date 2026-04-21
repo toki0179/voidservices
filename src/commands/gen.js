@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AttachmentBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
@@ -12,7 +12,7 @@ const defaultScript = path.join(projectRoot, 'generator', 'main.py');
 const defaultVenvPython = path.join(projectRoot, '.venv', 'bin', 'python');
 const executionTimeoutMs = 600000;
 const maxOutputLength = 1800;
-const DISCORD_MESSAGE_LIMIT = 1900; // leave room for backticks and iteration header
+const DISCORD_MESSAGE_LIMIT = 1900;
 
 function resolvePythonCommand() {
   const configured = process.env.GEN_PYTHON;
@@ -40,7 +40,6 @@ async function sendLogDm(userId, client, message, attachments = []) {
     return;
   }
 
-  // Truncate message to Discord limit
   let finalMessage = message;
   if (finalMessage.length > DISCORD_MESSAGE_LIMIT) {
     finalMessage = finalMessage.slice(0, DISCORD_MESSAGE_LIMIT - 50) + '\n... (truncated)';
@@ -123,17 +122,17 @@ function runPython(numberValue, onLog) {
 
       let generatedFile = null;
       let screenshotFile = null;
-      // look for a log that looks like LOG: Credentials saved to {credentials_filename}
-      const credsMatch = stdout.match(/LOG:Credentials saved to (.+)/);
+      
+      // Flexible regex: allows optional space after LOG:
+      const credsMatch = stdout.match(/LOG:?\s*Credentials saved to (.+)/);
       if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
-      // If 2 groups, the second is the filename, but we should combine them for with / if needed
-      const credsMatch2 = stdout.match(/LOG:Credentials saved to (.+)\/(.+)/);
-      if (credsMatch2 && credsMatch2[1] && credsMatch2[2]) {
-        generatedFile = path.join(credsMatch2[1].trim(), credsMatch2[2].trim());
+      
+      const screenshotMatch = stdout.match(/LOG:?\s*Screenshot saved to (.+)/);
+      if (screenshotMatch && screenshotMatch[1]) {
+        screenshotFile = screenshotMatch[1].trim();
+        console.log(`[DEBUG] Captured screenshot path: ${screenshotFile}`);
       }
-      // Look for screenshot log
-      const screenshotMatch = stdout.match(/LOG:Screenshot saved to ([^\s]+)/);
-      if (screenshotMatch && screenshotMatch[1]) screenshotFile = screenshotMatch[1].trim();
+      
       resolve({
         code,
         signal,
@@ -175,7 +174,6 @@ export default {
 
       if (logLines.length) {
         let message = `\`\`\`[Iteration: ${numberValue}]\n${logLines.join('\n')}\`\`\``;
-        // Truncate if too long
         if (message.length > DISCORD_MESSAGE_LIMIT) {
           const available = DISCORD_MESSAGE_LIMIT - `\`\`\`[Iteration: ${numberValue}]\n...\`\`\``.length - 10;
           const truncatedContent = logLines.join('\n').slice(0, available) + '\n... (truncated)';
@@ -201,7 +199,7 @@ export default {
 
       let result;
       let attempt = 0;
-      const maxAttempts = 10; // Prevent infinite loops
+      const maxAttempts = 10;
       do {
         attempt++;
         if (attempt > 1) {
@@ -222,8 +220,13 @@ export default {
 
       let attachments = [];
       let attachmentMsg = [];
+      
+      // Handle credentials file
       if (result.generatedFile) {
-        const filePath = path.join(projectRoot, result.generatedFile);
+        const filePath = path.isAbsolute(result.generatedFile) 
+          ? result.generatedFile 
+          : path.join(projectRoot, result.generatedFile);
+        console.log(`[DEBUG] Looking for credentials at: ${filePath}`);
         if (existsSync(filePath)) {
           const fileContent = readFileSync(filePath, 'utf-8');
           attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
@@ -234,15 +237,39 @@ export default {
           console.warn(`[gen.js] Credentials file not found: ${filePath}`);
         }
       }
+      
+      // Handle screenshot file
       if (result.screenshotFile) {
-        const screenshotPath = path.join(projectRoot, result.screenshotFile);
+        let screenshotPath = result.screenshotFile;
+        if (!path.isAbsolute(screenshotPath)) {
+          screenshotPath = path.join(projectRoot, screenshotPath);
+        }
+        console.log(`[DEBUG] Looking for screenshot at: ${screenshotPath}`);
+        
         if (existsSync(screenshotPath)) {
+          const stats = statSync(screenshotPath);
+          console.log(`[DEBUG] Screenshot found, size: ${stats.size} bytes`);
           attachments.push(new AttachmentBuilder(screenshotPath));
-          attachmentMsg.push(`screenshot: ${path.basename(result.screenshotFile)}`);
+          attachmentMsg.push(`screenshot: ${path.basename(screenshotPath)}`);
         } else {
-          console.warn(`[gen.js] Screenshot file not found: ${screenshotPath}`);
+          console.error(`[DEBUG] Screenshot file NOT FOUND: ${screenshotPath}`);
+          // Try alternative: maybe just the filename in generator folder
+          const altPath = path.join(projectRoot, 'generator', path.basename(screenshotPath));
+          console.log(`[DEBUG] Trying alternative path: ${altPath}`);
+          if (existsSync(altPath)) {
+            console.log(`[DEBUG] Found at alternative path!`);
+            attachments.push(new AttachmentBuilder(altPath));
+            attachmentMsg.push(`screenshot: ${path.basename(altPath)}`);
+          } else {
+            const genDir = path.join(projectRoot, 'generator');
+            if (existsSync(genDir)) {
+              const files = readdirSync(genDir);
+              console.log(`[DEBUG] Files in generator/: ${files.join(', ')}`);
+            }
+          }
         }
       }
+      
       if (attachments.length) {
         await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations. ${attachmentMsg.join(' and ')} sent via DM.`);
         await sendLogDm(userId, client, `Generated ${attachmentMsg.join(' and ')}`, attachments);

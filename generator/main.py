@@ -8,8 +8,6 @@ import random
 import time
 import string
 import re
-import base64
-import io
 import logging
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
@@ -27,7 +25,7 @@ def count_tokens(text):
         enc = tiktoken.get_encoding('cl100k_base')
         return len(enc.encode(text))
     except ImportError:
-        print("[WARN] tiktoken not installed, using word count as a rough estimate. Token count may be much higher, especially for base64 data.")
+        print("[WARN] tiktoken not installed, using word count as a rough estimate.")
         return len(text.split())
 
 def random_string(length: int) -> str:
@@ -45,7 +43,7 @@ def human_move_and_click(page, element, offset: int = 5) -> None:
         except Exception:
             count = 1
         if count == 0:
-            print(f"LOG: [human_move_and_click] No elements found for locator: {getattr(element, 'selector', element)}")
+            print(f"LOG: [human_move_and_click] No elements found")
             return
         element.wait_for(state="visible", timeout=5000)
         box = element.bounding_box()
@@ -58,11 +56,11 @@ def human_move_and_click(page, element, offset: int = 5) -> None:
         else:
             element.click()
     except Exception as e:
-        print(f"LOG: [human_move_and_click] Fallback to .click() due to: {e}")
+        print(f"LOG: [human_move_and_click] Fallback click due to: {e}")
         try:
             element.click()
         except Exception as e2:
-            print(f"LOG: [human_move_and_click] .click() also failed: {e2}")
+            print(f"LOG: [human_move_and_click] Click also failed: {e2}")
 
 def human_type(page, locator, text, delay_range: tuple = (0.05, 0.2)) -> None:
     human_move_and_click(page, locator)
@@ -100,14 +98,8 @@ def run(playwright: Playwright) -> None:
         'bakllava:latest': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
         'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
     }
-    FORCE_PROMPT = (
-        'Keep every reply to a normal Discord message length: concise, direct, and usually under 3 short sentences. '
-        'Avoid bullet lists, long explanations, and essay-style responses unless the user explicitly asks for detail.'
-    )
-    BASE_PROMPT = ''
-    _preferred_server = {}
 
-    print(f"LOG:Launching browser (proxy=rotating residential)")
+    print(f"LOG:Launching browser")
     launch_args = {}
     proxy_url = proxy
     proxy_username = None
@@ -137,7 +129,6 @@ def run(playwright: Playwright) -> None:
 
     print("LOG:Going to Discord register page")
     page.goto("https://discord.com/register")
-    print("LOG:Waiting after page load")
     human_delay(1.0, 2.5)
     page.mouse.wheel(0, random.randint(50, 150))
     human_delay(0.5, 1.0)
@@ -168,7 +159,7 @@ def run(playwright: Playwright) -> None:
     human_move_and_click(page, checkbox)
     human_delay(0.5, 1.0)
 
-    print("LOG:Verifying registration fields before continuing")
+    print("LOG:Verifying registration fields")
     registration_fields = [
         (page.get_by_role("textbox", name="Email"), email),
         (page.get_by_role("textbox", name="Display Name"), name),
@@ -179,10 +170,10 @@ def run(playwright: Playwright) -> None:
         try:
             current_value = locator.input_value()
             if not current_value.strip():
-                print(f"LOG:Field empty, refilling: {locator}")
+                print(f"LOG:Field empty, refilling")
                 human_type(page, locator, value)
         except Exception as e:
-            print(f"LOG:Error checking field {locator}: {e}")
+            print(f"LOG:Error checking field: {e}")
 
     print("LOG:Clicking create account button")
     create_btn = page.get_by_role("button", name="Create Account")
@@ -197,12 +188,10 @@ def run(playwright: Playwright) -> None:
     time.sleep(1)
 
     print("LOG:Taking captcha screenshot and running OCR")
-    # Save captcha screenshot inside generator directory
     captcha_filename = f"captcha_{username}.png"
     captcha_path = os.path.join(GENERATOR_DIR, captcha_filename)
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=captcha_path)
 
-    # Compress
     compressed_filename = f"captcha_{username}_compressed.jpg"
     compressed_path = os.path.join(GENERATOR_DIR, compressed_filename)
     with Image.open(captcha_path) as img:
@@ -217,11 +206,9 @@ def run(playwright: Playwright) -> None:
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha")
     full_prompt = (
-        "You are solving a puzzle. DO NOT REPEAT THE QUESTION. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. DO NOT SAY 'The answer is' or anything like that.\n"
+        "You are solving a puzzle. Output ONLY the full answer, with no explanation.\n"
         f"Captcha: {extracted_text.strip()}"
     )
-    token_count = count_tokens(full_prompt)
-    print(f"LOG:Prompt token estimate: {token_count}")
     try:
         response = client.generate(model=model_name, prompt=full_prompt, **params)
         answer = response.get('response') if isinstance(response, dict) else getattr(response, 'response', None)
@@ -229,87 +216,71 @@ def run(playwright: Playwright) -> None:
             answer = answer.strip()
             print(f"LOG:succeeded with answer: {answer}")
         else:
-            print("LOG:No answer returned.")
             answer = "I couldn't generate an answer right now."
     except Exception as e:
         print(f"LOG:Server error: {e}")
         answer = "I couldn't generate an answer right now."
     print(f"LOG:Final answer: {answer}")
 
-    print("LOG:Starting captcha solve loop (multi-page support)")
+    print("LOG:Starting captcha solve loop")
     while True:
         captcha_input = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox")
         print("LOG:Filling captcha input")
         human_type(page, captcha_input, answer)
-        print("LOG:Submitting captcha (Next/Submit button)")
+        print("LOG:Submitting captcha")
         content_frame = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame
-        next_btn = None
         try:
             next_btn = content_frame.locator('role=button')
             if next_btn.count() > 0 and next_btn.first.is_visible():
                 human_move_and_click(page, next_btn.first)
             else:
-                raise Exception('No Next Challenge button visible')
+                raise Exception('No button')
         except Exception:
             submit_btn = content_frame.get_by_role("button", name="Submit")
             human_move_and_click(page, submit_btn)
-        print("LOG:Waiting after captcha submit")
         human_delay(1.0, 2.0)
-        print("LOG:Checking for next captcha page or completion")
+        print("LOG:Checking for next captcha page")
         try:
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
-            print("LOG:Taking screenshot and running OCR for next captcha page")
-            next_captcha_filename = f"captcha_{username}_next.png"
-            next_captcha_path = os.path.join(GENERATOR_DIR, next_captcha_filename)
+            print("LOG:Next captcha page detected")
+            next_captcha_path = os.path.join(GENERATOR_DIR, f"captcha_{username}_next.png")
             page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=next_captcha_path)
-            compressed_next_path = os.path.join(GENERATOR_DIR, f"captcha_{username}_next_compressed.jpg")
+            compressed_next = os.path.join(GENERATOR_DIR, f"captcha_{username}_next_compressed.jpg")
             with Image.open(next_captcha_path) as img:
                 rgb_img = img.convert("RGB")
-                rgb_img.save(compressed_next_path, format="JPEG", quality=60)
+                rgb_img.save(compressed_next, format="JPEG", quality=60)
             os.remove(next_captcha_path)
-            extracted_text = pytesseract.image_to_string(Image.open(compressed_next_path))
+            extracted_text = pytesseract.image_to_string(Image.open(compressed_next))
             print(f"LOG:OCR extracted text (next): {extracted_text.strip()}")
-            full_prompt = (
-                "You are solving a captcha. Output ONLY the full answer, with no explanation, no punctuation, and no extra text.\n"
-                f"Captcha: {extracted_text.strip()}"
-            )
-            token_count = count_tokens(full_prompt)
-            print(f"LOG:Prompt token estimate: {token_count}")
+            full_prompt = f"You are solving a captcha. Output ONLY the full answer.\nCaptcha: {extracted_text.strip()}"
             try:
                 response = client.generate(model=model_name, prompt=full_prompt, **params)
                 answer = response.get('response') if isinstance(response, dict) else getattr(response, 'response', None)
                 if answer:
                     answer = answer.strip()
-                    print(f"LOG:Model {model_name} succeeded with answer: {answer}")
-                else:
-                    print("LOG:No answer returned from model.")
-                    answer = "I couldn't generate a response right now."
             except Exception as e:
-                print(f"LOG:Ollama server error: {e}")
+                print(f"LOG:Ollama error: {e}")
                 answer = "I couldn't generate a response right now."
-            print(f"LOG:Final answer: {answer}")
-            print("LOG:Continuing to next captcha page")
+            print(f"LOG:New answer: {answer}")
             continue
         except Exception:
-            print("LOG:Captcha challenge complete or iframe gone")
+            print("LOG:Captcha complete")
             break
 
     print("LOG:Checking for rate limiting")
     if page.locator("text=You are being rate limited").is_visible():
-        print("LOG:Rate limit detected, waiting 60 seconds...")
+        print("LOG:Rate limit detected")
         page.wait_for_timeout(60000)
-        print("LOG:Rate limited – please run the script again manually.")
-        print("LOG:Closing browser due to rate limit")
         context.close()
         browser.close()
         return
 
-    print("LOG:Waiting for successful redirect after registration")
-    # Save final screenshot inside generator directory
+    print("LOG:Waiting for redirect")
+    # Save final screenshot
     screenshot_filename = f"final_{username}.png"
     screenshot_path = os.path.join(GENERATOR_DIR, screenshot_filename)
     page.screenshot(path=screenshot_path, full_page=True)
-    # Log relative path from project root (without 'generator/' prefix? Keep as generator/...)
+    # Log relative path (from project root)
     rel_path = os.path.join('generator', screenshot_filename)
     print(f"LOG:Screenshot saved to {rel_path}")
 
@@ -319,10 +290,9 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Password: {password}")
     try:
         insert_account(email, password, username)
-        print(f"LOG:Account inserted into accounts.db: {username}:{email}:{password}")
+        print(f"LOG:Account inserted into accounts.db")
     except Exception as e:
-        print(f"LOG:Failed to insert account into DB: {e}")
-    print("LOG:Closing browser and context")
+        print(f"LOG:Failed to insert account: {e}")
     context.close()
     browser.close()
 
@@ -332,9 +302,8 @@ if __name__ == "__main__":
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
     except Exception as e:
-        print(f"LOG: Process terminated due to an exception: {type(e).__name__}: {e}")
+        print(f"LOG: Process terminated: {type(e).__name__}: {e}")
         import traceback
-        print("LOG: Full traceback:")
         for line in traceback.format_exc().splitlines():
             print(f"LOG: {line}")
         raise
