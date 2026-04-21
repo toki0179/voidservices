@@ -28,8 +28,17 @@ def human_delay(min_sec: float = 0.3, max_sec: float = 0.8) -> None:
 
 def human_move_and_click(page, element, offset: int = 5) -> None:
     try:
+        # Check if locator resolves to any elements before waiting
+        count = 0
+        try:
+            count = element.count() if hasattr(element, 'count') else 1
+        except Exception:
+            count = 1
+        if count == 0:
+            print(f"LOG: [human_move_and_click] No elements found for locator: {getattr(element, 'selector', element)}")
+            return
         # Wait for element to be visible before interacting
-        element.wait_for(state="visible", timeout=10000)
+        element.wait_for(state="visible", timeout=5000)
         box = element.bounding_box()
         if box:
             x = box['x'] + random.uniform(offset, box['width'] - offset)
@@ -324,9 +333,12 @@ def run(playwright: Playwright) -> None:
     print("LOG:Waiting for successful redirect after registration")
     # Take a screenshot after captcha challenge complete
     try:
+        import os
         screenshot_path = f"final_{username}.png"
         page.screenshot(path=screenshot_path, full_page=True)
-        print(f"LOG:Screenshot saved to {screenshot_path}")
+        # Print the screenshot path relative to the generator directory for Node.js
+        rel_path = os.path.join('generator', screenshot_path)
+        print(f"LOG:Screenshot saved to {rel_path}")
     except Exception as e:
         print(f"LOG:Failed to take screenshot: {e}")
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)

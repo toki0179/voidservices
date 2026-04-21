@@ -230,9 +230,12 @@ export default {
         }));
         attachmentMsg.push(`credentials file: ${path.basename(result.generatedFile)}`);
       }
-      if (result.screenshotFile && existsSync(result.screenshotFile)) {
-        attachments.push(new AttachmentBuilder(result.screenshotFile));
-        attachmentMsg.push(`screenshot: ${path.basename(result.screenshotFile)}`);
+      if (result.screenshotFile) {
+        const screenshotPath = path.join(projectRoot, result.screenshotFile);
+        if (existsSync(screenshotPath)) {
+          attachments.push(new AttachmentBuilder(screenshotPath));
+          attachmentMsg.push(`screenshot: ${path.basename(result.screenshotFile)}`);
+        }
       }
       if (attachments.length) {
         await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations. ${attachmentMsg.join(' and ')} sent via DM.`);
