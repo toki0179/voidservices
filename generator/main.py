@@ -3,21 +3,32 @@ load_dotenv()
 from accounts_db import init_accounts_db, insert_account
 proxy = 'http://toki0179-rotate:bossandy12@p.webshare.io:80/'
 
+import os
+import random
+import time
+import string
+import re
+import base64
+import io
+import logging
+from playwright.sync_api import Playwright, sync_playwright
+from playwright_stealth import Stealth
+from ollama import Client as OllamaClient
+from PIL import Image
+import pytesseract
+import tiktoken
+
+# Ensure generator directory exists
+GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
+os.makedirs(GENERATOR_DIR, exist_ok=True)
 
 def count_tokens(text):
     try:
-        import tiktoken
         enc = tiktoken.get_encoding('cl100k_base')
         return len(enc.encode(text))
     except ImportError:
         print("[WARN] tiktoken not installed, using word count as a rough estimate. Token count may be much higher, especially for base64 data.")
         return len(text.split())
-import random
-import time
-import string
-from playwright.sync_api import Playwright, sync_playwright
-from playwright_stealth import Stealth
-from ollama import Client as OllamaClient
 
 def random_string(length: int) -> str:
     letters = string.ascii_lowercase
@@ -28,7 +39,6 @@ def human_delay(min_sec: float = 0.3, max_sec: float = 0.8) -> None:
 
 def human_move_and_click(page, element, offset: int = 5) -> None:
     try:
-        # Check if locator resolves to any elements before waiting
         count = 0
         try:
             count = element.count() if hasattr(element, 'count') else 1
@@ -37,7 +47,6 @@ def human_move_and_click(page, element, offset: int = 5) -> None:
         if count == 0:
             print(f"LOG: [human_move_and_click] No elements found for locator: {getattr(element, 'selector', element)}")
             return
-        # Wait for element to be visible before interacting
         element.wait_for(state="visible", timeout=5000)
         box = element.bounding_box()
         if box:
@@ -67,25 +76,21 @@ def human_type(page, locator, text, delay_range: tuple = (0.05, 0.2)) -> None:
         human_delay(0.02, 0.07)
 
 def select_dropdown_with_arrows(page, dropdown_text: str, down_presses: int) -> None:
-    """Open dropdown, press ArrowDown a specific number of times, then press Enter."""
     dropdown = page.get_by_text(dropdown_text)
     human_move_and_click(page, dropdown)
     human_delay(0.3, 0.6)
     for _ in range(down_presses):
         page.keyboard.press("ArrowDown")
-        human_delay(0.03, 0.08)  # small delay between presses
+        human_delay(0.03, 0.08)
     human_delay(0.2, 0.4)
     page.keyboard.press("Enter")
     human_delay(0.2, 0.5)
 
 def run(playwright: Playwright) -> None:
-    import logging
-    # Use your own hosted Ollama server
     OLLAMA_HOST = "http://78.46.88.140:11434/"
     client = OllamaClient(host=OLLAMA_HOST)
     logger = logging.getLogger('generator')
     logging.basicConfig(level=logging.INFO)
-    # Model to parameter mapping (copied from selfbot)
     MODEL_PARAMS = {
         'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
         'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9, 'num_predict': 64},
@@ -99,17 +104,15 @@ def run(playwright: Playwright) -> None:
         'Keep every reply to a normal Discord message length: concise, direct, and usually under 3 short sentences. '
         'Avoid bullet lists, long explanations, and essay-style responses unless the user explicitly asks for detail.'
     )
-    BASE_PROMPT = ''  # Optionally load from env if desired
+    BASE_PROMPT = ''
     _preferred_server = {}
-    import os
+
     print(f"LOG:Launching browser (proxy=rotating residential)")
     launch_args = {}
     proxy_url = proxy
     proxy_username = None
     proxy_password = None
     if proxy_url and '@' in proxy_url:
-        # Parse proxy URL for credentials
-        import re
         m = re.match(r'http[s]?://([^:]+):([^@]+)@([^/]+)', proxy_url)
         if m:
             proxy_username, proxy_password, proxy_host = m.groups()
@@ -142,38 +145,30 @@ def run(playwright: Playwright) -> None:
     print("LOG:Ensuring first registration input is ready")
     page.wait_for_selector('input[name="email"]', timeout=10000)
     print("LOG:Filling registration form")
-    # Email
     email = f"{random_string(8)}@shady.gg"
     email_locator = page.get_by_role("textbox", name="Email")
     human_type(page, email_locator, email)
 
-    # Display Name
     display_locator = page.get_by_role("textbox", name="Display Name")
     human_type(page, display_locator, name)
 
-    # Username
     user_locator = page.get_by_role("textbox", name="Username")
     human_type(page, user_locator, username)
 
-    # Password
     pass_locator = page.get_by_role("textbox", name="Password")
     human_type(page, pass_locator, password)
 
     print("LOG:Selecting date of birth")
-    # Date of Birth – using fixed arrow press counts
-    select_dropdown_with_arrows(page, "Day, Day", 19)      # 1 -> 20 = 19 presses
-    select_dropdown_with_arrows(page, "Month, Month", 0)   # January is first
-    select_dropdown_with_arrows(page, "Year, Year", 23)    # 23 presses (as you specified)
+    select_dropdown_with_arrows(page, "Day, Day", 19)
+    select_dropdown_with_arrows(page, "Month, Month", 0)
+    select_dropdown_with_arrows(page, "Year, Year", 23)
 
     print("LOG:Clicking consent checkbox")
-    # Consent checkbox
     checkbox = page.locator(".consentBox_d332d2 > .checkboxOption__714a9 > .checkboxIndicator__714a9 > .checkStroke__714a9")
     human_move_and_click(page, checkbox)
     human_delay(0.5, 1.0)
 
-
     print("LOG:Verifying registration fields before continuing")
-    # Check and fill any empty registration fields (ignore DOB and checkbox)
     registration_fields = [
         (page.get_by_role("textbox", name="Email"), email),
         (page.get_by_role("textbox", name="Display Name"), name),
@@ -189,56 +184,40 @@ def run(playwright: Playwright) -> None:
         except Exception as e:
             print(f"LOG:Error checking field {locator}: {e}")
 
-
     print("LOG:Clicking create account button")
-    # Create Account button
     create_btn = page.get_by_role("button", name="Create Account")
     human_move_and_click(page, create_btn)
 
     print("LOG:Waiting for hCaptcha to load")
-    # Wait for hCaptcha to load
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
-    time.sleep(2)  # Extra wait to ensure captcha is fully interactive
+    time.sleep(2)
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
     time.sleep(1)
     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
     time.sleep(1)
 
     print("LOG:Taking captcha screenshot and running OCR")
-    # Screenshot captcha for manual solving
-    import os
-    path_name = f"captcha_{username}.png"
-    # Screenshot in the iframe by class=text-text make sure this isnt css class area to avoid extra elements and get a cleaner image for OCR
-    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=path_name)
-    # Compress the image before base64 encoding
-    from PIL import Image
-    import base64
-    import io
-    import pytesseract
-    pytesseract.pytesseract.tesseract_cmd = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
-    compressed_path = f"captcha_{username}_compressed.jpg"
-    with Image.open(path_name) as img:
+    # Save captcha screenshot inside generator directory
+    captcha_filename = f"captcha_{username}.png"
+    captcha_path = os.path.join(GENERATOR_DIR, captcha_filename)
+    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=captcha_path)
+
+    # Compress
+    compressed_filename = f"captcha_{username}_compressed.jpg"
+    compressed_path = os.path.join(GENERATOR_DIR, compressed_filename)
+    with Image.open(captcha_path) as img:
         rgb_img = img.convert("RGB")
         rgb_img.save(compressed_path, format="JPEG", quality=60)
-    # Delete the original screenshot after compressing
-    try:
-        os.remove(path_name)
-    except Exception as e:
-        logger.warning(f"Could not delete {path_name}: {e}")
+    os.remove(captcha_path)
 
-    # OCR extraction
     extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
     print(f"LOG:OCR extracted text: {extracted_text.strip()}")
 
-    # Get all available models and try each in order until one succeeds
-    # Use a specific model (e.g., 'mistral:latest')
     model_name = 'phi3.5:latest'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha")
-    # Build prompt: instruct model to output ONLY the answer
     full_prompt = (
-        "You are solving a puzzle. DO NOT REPEAT THE QUESTION. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. DO NOT SAY 'The answer is' or anything like that."
-        "If the answer is a number or a sequence of numbers, output the entire number or sequence exactly as shown in the captcha. If it is a word or phrase, output the entire word or phrase. Do not say anything else.\n"
+        "You are solving a puzzle. DO NOT REPEAT THE QUESTION. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. DO NOT SAY 'The answer is' or anything like that.\n"
         f"Captcha: {extracted_text.strip()}"
     )
     token_count = count_tokens(full_prompt)
@@ -256,7 +235,7 @@ def run(playwright: Playwright) -> None:
         print(f"LOG:Server error: {e}")
         answer = "I couldn't generate an answer right now."
     print(f"LOG:Final answer: {answer}")
-    # Loop to handle multi-page captchas
+
     print("LOG:Starting captcha solve loop (multi-page support)")
     while True:
         captcha_input = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("textbox")
@@ -280,21 +259,18 @@ def run(playwright: Playwright) -> None:
         try:
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
             print("LOG:Taking screenshot and running OCR for next captcha page")
-            path_name = f"captcha_{username}_next.png"
-            page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=path_name)
-            with Image.open(path_name) as img:
+            next_captcha_filename = f"captcha_{username}_next.png"
+            next_captcha_path = os.path.join(GENERATOR_DIR, next_captcha_filename)
+            page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=next_captcha_path)
+            compressed_next_path = os.path.join(GENERATOR_DIR, f"captcha_{username}_next_compressed.jpg")
+            with Image.open(next_captcha_path) as img:
                 rgb_img = img.convert("RGB")
-                rgb_img.save(compressed_path, format="JPEG", quality=60)
-            try:
-                os.remove(path_name)
-            except Exception as e:
-                logger.warning(f"Could not delete {path_name}: {e}")
-            extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
+                rgb_img.save(compressed_next_path, format="JPEG", quality=60)
+            os.remove(next_captcha_path)
+            extracted_text = pytesseract.image_to_string(Image.open(compressed_next_path))
             print(f"LOG:OCR extracted text (next): {extracted_text.strip()}")
-            # Re-run LLM solve with direct OllamaClient
             full_prompt = (
-                "You are solving a captcha. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. "
-                "If the answer is a number or a sequence of numbers, output the entire number or sequence exactly as shown in the captcha. If it is a word or phrase, output the entire word or phrase. Do not say anything else.\n"
+                "You are solving a captcha. Output ONLY the full answer, with no explanation, no punctuation, and no extra text.\n"
                 f"Captcha: {extracted_text.strip()}"
             )
             token_count = count_tokens(full_prompt)
@@ -313,12 +289,11 @@ def run(playwright: Playwright) -> None:
                 answer = "I couldn't generate a response right now."
             print(f"LOG:Final answer: {answer}")
             print("LOG:Continuing to next captcha page")
-            continue  # Loop again for next captcha page
+            continue
         except Exception:
             print("LOG:Captcha challenge complete or iframe gone")
             break
 
-    # After captcha solver, check for rate limiting
     print("LOG:Checking for rate limiting")
     if page.locator("text=You are being rate limited").is_visible():
         print("LOG:Rate limit detected, waiting 60 seconds...")
@@ -329,23 +304,19 @@ def run(playwright: Playwright) -> None:
         browser.close()
         return
 
-    # Wait for successful redirect
     print("LOG:Waiting for successful redirect after registration")
-    # Take a screenshot after captcha challenge complete
-    try:
-        import os
-        screenshot_path = f"final_{username}.png"
-        page.screenshot(path=screenshot_path, full_page=True)
-        # Print the screenshot path relative to the generator directory for Node.js
-        rel_path = os.path.join('generator', screenshot_path)
-        print(f"LOG:Screenshot saved to {rel_path}")
-    except Exception as e:
-        print(f"LOG:Failed to take screenshot: {e}")
+    # Save final screenshot inside generator directory
+    screenshot_filename = f"final_{username}.png"
+    screenshot_path = os.path.join(GENERATOR_DIR, screenshot_filename)
+    page.screenshot(path=screenshot_path, full_page=True)
+    # Log relative path from project root (without 'generator/' prefix? Keep as generator/...)
+    rel_path = os.path.join('generator', screenshot_filename)
+    print(f"LOG:Screenshot saved to {rel_path}")
+
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
-    # Store credentials in accounts.db
     try:
         insert_account(email, password, username)
         print(f"LOG:Account inserted into accounts.db: {username}:{email}:{password}")
@@ -355,23 +326,17 @@ def run(playwright: Playwright) -> None:
     context.close()
     browser.close()
 
-# ------------------------------------------------------------
-# Main execution with comprehensive error logging on process exit
-# ------------------------------------------------------------
 if __name__ == "__main__":
     init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
     except Exception as e:
-        # Print the error in the required "LOG: {error logs}" format
         print(f"LOG: Process terminated due to an exception: {type(e).__name__}: {e}")
-        # Optionally print traceback for debugging (still in LOG format)
         import traceback
         print("LOG: Full traceback:")
         for line in traceback.format_exc().splitlines():
             print(f"LOG: {line}")
-        # Re-raise if you want the script to exit with non-zero code
         raise
     else:
         print("LOG: Process finished normally.")
