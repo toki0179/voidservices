@@ -222,19 +222,25 @@ export default {
 
       let attachments = [];
       let attachmentMsg = [];
-      if (result.generatedFile && existsSync(result.generatedFile)) {
+      if (result.generatedFile) {
         const filePath = path.join(projectRoot, result.generatedFile);
-        const fileContent = readFileSync(filePath, 'utf-8');
-        attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
-          name: path.basename(result.generatedFile),
-        }));
-        attachmentMsg.push(`credentials file: ${path.basename(result.generatedFile)}`);
+        if (existsSync(filePath)) {
+          const fileContent = readFileSync(filePath, 'utf-8');
+          attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
+            name: path.basename(result.generatedFile),
+          }));
+          attachmentMsg.push(`credentials file: ${path.basename(result.generatedFile)}`);
+        } else {
+          console.warn(`[gen.js] Credentials file not found: ${filePath}`);
+        }
       }
       if (result.screenshotFile) {
         const screenshotPath = path.join(projectRoot, result.screenshotFile);
         if (existsSync(screenshotPath)) {
           attachments.push(new AttachmentBuilder(screenshotPath));
           attachmentMsg.push(`screenshot: ${path.basename(result.screenshotFile)}`);
+        } else {
+          console.warn(`[gen.js] Screenshot file not found: ${screenshotPath}`);
         }
       }
       if (attachments.length) {
