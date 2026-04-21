@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { getAccountsByDate } from '../lib/accountsDb.js';
-import { getAllProxies } from '../lib/proxyDb.js';
+import { getAllResidentialProxies } from '../lib/proxyDb.js';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'node:url';
 import { AttachmentBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
@@ -200,7 +200,7 @@ export default {
 
       // --- Proxy selection logic ---
       async function getWorkingProxy() {
-        const proxies = getAllProxies();
+        const proxies = getAllResidentialProxies();
         const shuffled = proxies.sort(() => Math.random() - 0.5);
         for (const proxy of shuffled) {
           const [ip, port] = proxy.proxy.split(':');
