@@ -202,7 +202,7 @@ def run(playwright: Playwright) -> None:
     extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
     print(f"LOG:OCR extracted text: {extracted_text.strip()}")
 
-    model_name = 'deepseek-r1:7b'
+    model_name = 'deepseek-r1:1.5b'
     params = MODEL_PARAMS.get(model_name, {})
     print(f"LOG:Solving captcha")
     full_prompt = (
