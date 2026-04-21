@@ -1,0 +1,5 @@
+# Add better-sqlite3 for Node.js DB access
+# Add https-proxy-agent for proxy validation
+better-sqlite3
+https-proxy-agent
+node-fetch

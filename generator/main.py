@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
+from accounts_db import init_accounts_db, insert_account
+
 def count_tokens(text):
     try:
         import tiktoken
@@ -79,8 +81,13 @@ def run(playwright: Playwright) -> None:
     )
     BASE_PROMPT = ''  # Optionally load from env if desired
     _preferred_server = {}
-    print("LOG:Launching browser")
-    browser = playwright.chromium.launch(headless=False)
+    import os
+    proxy = os.environ.get('GEN_PROXY')
+    print(f"LOG:Launching browser (proxy={proxy})")
+    launch_args = {}
+    if proxy:
+        launch_args['proxy'] = { 'server': f'http://{proxy}' }
+    browser = playwright.chromium.launch(headless=False, **launch_args)
     print("LOG:Creating browser context")
     context = browser.new_context()
     name = "voidservices"
@@ -201,12 +208,12 @@ def run(playwright: Playwright) -> None:
 
     # Get all available models and try each in order until one succeeds
     # Use a specific model (e.g., 'mistral:latest')
-    model_name = 'phi3.5:latest'
+    model_name = 'gemma3:4b'
     params = MODEL_PARAMS.get(model_name, {})
-    print(f"LOG:Solving captcha with LLM model: {model_name}")
+    print(f"LOG:Solving captcha")
     # Build prompt: instruct model to output ONLY the answer
     full_prompt = (
-        "You are solving a puzzle. DO NOT REPEAT THE QUESTION. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. "
+        "You are solving a puzzle. DO NOT REPEAT THE QUESTION. Output ONLY the full answer, with no explanation, no punctuation, and no extra text. DO NOT SAY 'The answer is' or anything like that."
         "If the answer is a number or a sequence of numbers, output the entire number or sequence exactly as shown in the captcha. If it is a word or phrase, output the entire word or phrase. Do not say anything else.\n"
         f"Captcha: {extracted_text.strip()}"
     )
@@ -217,13 +224,13 @@ def run(playwright: Playwright) -> None:
         answer = response.get('response') if isinstance(response, dict) else getattr(response, 'response', None)
         if answer:
             answer = answer.strip()
-            print(f"LOG:Model {model_name} succeeded with answer: {answer}")
+            print(f"LOG:succeeded with answer: {answer}")
         else:
-            print("LOG:No answer returned from model.")
-            answer = "I couldn't generate a response right now."
+            print("LOG:No answer returned.")
+            answer = "I couldn't generate an answer right now."
     except Exception as e:
-        print(f"LOG:Ollama server error: {e}")
-        answer = "I couldn't generate a response right now."
+        print(f"LOG:Server error: {e}")
+        answer = "I couldn't generate an answer right now."
     print(f"LOG:Final answer: {answer}")
     # Loop to handle multi-page captchas
     print("LOG:Starting captcha solve loop (multi-page support)")
@@ -293,14 +300,12 @@ def run(playwright: Playwright) -> None:
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
-    # Generate a file with the credentials overwriting an old one if it exists, and creating one if it doesnt, in the format "username:password", the name should a randomly generated string 5 characters long txt, and the file should be saved in generated/
-    credentials_filename = f"generated/{random_string(8)}.txt"
+    # Store credentials in accounts.db
     try:
-        with open(credentials_filename, "w") as f:
-            f.write(f"{username}:{email}:{password}")
-        print(f"LOG:Credentials saved to {credentials_filename}")
+        insert_account(email, password, username)
+        print(f"LOG:Account inserted into accounts.db: {username}:{email}:{password}")
     except Exception as e:
-        print(f"LOG:Failed to append credentials: {e}")
+        print(f"LOG:Failed to insert account into DB: {e}")
     print("LOG:Closing browser and context")
     context.close()
     browser.close()
@@ -309,6 +314,7 @@ def run(playwright: Playwright) -> None:
 # Main execution with comprehensive error logging on process exit
 # ------------------------------------------------------------
 if __name__ == "__main__":
+    init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)

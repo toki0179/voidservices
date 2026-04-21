@@ -1,6 +1,9 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { getAccountsByDate } from '../lib/accountsDb.js';
+import { getAllProxies } from '../lib/proxyDb.js';
+import fetch from 'node-fetch';
 import { fileURLToPath } from 'node:url';
 import { AttachmentBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
@@ -195,31 +198,73 @@ export default {
         content: `🚀 Generation started with **${numberValue}** iterations. Sending logs via DM…\n*Check your DMs for real‑time progress.*`,
       });
 
-      const result = await runPython(numberValue, onLog);
-
-      clearInterval(logInterval);
-      await flushLogs();
-
-      if (result.code !== 0) {
-        await interaction.editReply(
-          `⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''}.\nCheck your DMs for complete logs.`
-        );
-        return;
+      // --- Proxy selection logic ---
+      async function getWorkingProxy() {
+        const proxies = getAllProxies();
+        const shuffled = proxies.sort(() => Math.random() - 0.5);
+        for (const proxy of shuffled) {
+          const [ip, port] = proxy.proxy.split(':');
+          const proxyUrl = `http://${proxy.proxy}`;
+          try {
+            const res = await fetch('https://discord.com/register', {
+              agent: new (require('https-proxy-agent'))(proxyUrl),
+              timeout: 7000,
+            });
+            if (res.ok) return proxy.proxy;
+          } catch {}
+        }
+        throw new Error('No working proxies found');
       }
 
-      if (result.generatedFile && existsSync(result.generatedFile)) {
-        const filePath = path.join(projectRoot, result.generatedFile);
-        const fileContent = readFileSync(filePath, 'utf-8');
-        const attachment = new AttachmentBuilder(Buffer.from(fileContent), {
-          name: path.basename(result.generatedFile),
+      // --- Run Python child process for each iteration with working proxy ---
+      const results = [];
+      for (let i = 0; i < numberValue; i++) {
+        let proxy = null;
+        try {
+          proxy = await getWorkingProxy();
+        } catch (e) {
+          await sendLogDm(userId, client, `No working proxies found for iteration ${i + 1}`);
+          continue;
+        }
+        // Pass proxy to child process via env
+        await new Promise((resolve, reject) => {
+          const pythonScript = resolvePythonScript();
+          const pythonCommand = resolvePythonCommand();
+          const child = spawn(pythonCommand, [pythonScript, String(1)], {
+            cwd: projectRoot,
+            env: {
+              ...process.env,
+              GEN_NUMBER: '1',
+              PYTHONUNBUFFERED: '1',
+              GEN_PROXY: proxy,
+            },
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          let stdout = '';
+          let stderr = '';
+          child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+          child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+          child.on('close', (code) => {
+            results.push({ code, stdout, stderr });
+            resolve();
+          });
+          child.on('error', reject);
         });
-
-        await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations. Credentials file sent via DM.`);
-        await sendLogDm(userId, client, `Generated credentials file: ${path.basename(result.generatedFile)}`, [attachment]);
-        return;
       }
 
-      await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
+      // --- After all iterations, send today's accounts as .txt ---
+      const today = new Date().toISOString().slice(0, 10);
+      const accounts = getAccountsByDate(today);
+      if (accounts.length) {
+        const lines = accounts.map(a => `${a.username}:${a.email}:${a.password}`).join('\n');
+        const attachment = new AttachmentBuilder(Buffer.from(lines, 'utf-8'), {
+          name: `accounts_${today}.txt`,
+        });
+        await interaction.editReply(`✅ Generation complete with **${accounts.length}** accounts. File sent via DM.`);
+        await sendLogDm(userId, client, `Generated accounts for ${today}:`, [attachment]);
+      } else {
+        await interaction.editReply(`✅ Generation complete but no accounts were created today.`);
+      }
     } catch (error) {
       clearInterval(logInterval);
       await flushLogs();

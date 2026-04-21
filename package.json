@@ -20,6 +20,8 @@
     "better-sqlite3": "^12.9.0",
     "discord.js": "^14.17.3",
     "dotenv": "^16.4.5",
+    "https-proxy-agent": "^9.0.0",
+    "node-fetch": "^3.3.2",
     "puppeteer": "^24.25.0"
   }
 }
