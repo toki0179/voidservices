@@ -1,4 +1,3 @@
-
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -25,11 +24,18 @@ async function initProxyTable() {
 }
 
 export async function replaceResidentialProxies(proxies) {
-  await initProxyTable();
+  try {
+    await initProxyTable();
+  } catch (err) {
+    console.error('Failed to initialize proxy table:', err);
+    throw err;
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM residential_proxies');
+
     for (const item of proxies) {
       await client.query(
         `INSERT INTO residential_proxies (proxy, ip, port, source, updated_at)
@@ -42,6 +48,7 @@ export async function replaceResidentialProxies(proxies) {
         [item.proxy, item.ip, item.port, item.source]
       );
     }
+
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');
@@ -52,16 +59,26 @@ export async function replaceResidentialProxies(proxies) {
 }
 
 export async function getAllResidentialProxies() {
-  await initProxyTable();
-  const res = await pool.query('SELECT proxy FROM residential_proxies ORDER BY proxy ASC');
-  return res.rows.map(row => row.proxy);
+  try {
+    await initProxyTable();
+    const res = await pool.query('SELECT proxy FROM residential_proxies ORDER BY proxy ASC');
+    // Always return an array, even if res.rows is falsy
+    return Array.isArray(res?.rows) ? res.rows.map(row => row.proxy) : [];
+  } catch (err) {
+    console.error('getAllResidentialProxies failed:', err);
+    return []; // Fallback to empty array on error
+  }
 }
 
-export function getResidentialProxyCount() {
-  const database = getDb();
-  const stmt = database.prepare('SELECT COUNT(*) AS count FROM residential_proxies');
-  const result = stmt.get();
-  return result?.count ?? 0;
+export async function getResidentialProxyCount() {
+  try {
+    await initProxyTable();
+    const res = await pool.query('SELECT COUNT(*) AS count FROM residential_proxies');
+    return res?.rows?.[0]?.count ?? 0;
+  } catch (err) {
+    console.error('getResidentialProxyCount failed:', err);
+    return 0;
+  }
 }
 
 // Alias for compatibility
