@@ -86,11 +86,25 @@ def run(playwright: Playwright) -> None:
     import os
     print(f"LOG:Launching browser (proxy=rotating residential)")
     launch_args = {}
-    if proxy:
-        launch_args['proxy'] = { 'server': f'{proxy}' }
+    proxy_url = proxy
+    proxy_username = None
+    proxy_password = None
+    if proxy_url and '@' in proxy_url:
+        # Parse proxy URL for credentials
+        import re
+        m = re.match(r'http[s]?://([^:]+):([^@]+)@([^/]+)', proxy_url)
+        if m:
+            proxy_username, proxy_password, proxy_host = m.groups()
+            launch_args['proxy'] = { 'server': f'http://{proxy_host}' }
+        else:
+            launch_args['proxy'] = { 'server': proxy_url.split('@')[-1] }
+    elif proxy_url:
+        launch_args['proxy'] = { 'server': proxy_url }
     browser = playwright.chromium.launch(headless=False, **launch_args)
     print("LOG:Creating browser context")
     context = browser.new_context()
+    if proxy_username and proxy_password:
+        context.authenticate({"username": proxy_username, "password": proxy_password})
     name = "voidservices"
     username = f"voidserv_{random_string(5)}"
     password = random_string(10)
