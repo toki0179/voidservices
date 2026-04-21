@@ -198,34 +198,9 @@ export default {
         content: `🚀 Generation started with **${numberValue}** iterations. Sending logs via DM…\n*Check your DMs for real‑time progress.*`,
       });
 
-      // --- Proxy selection logic ---
-      async function getWorkingProxy() {
-        const proxies = getAllResidentialProxies();
-        const shuffled = proxies.sort(() => Math.random() - 0.5);
-        for (const proxy of shuffled) {
-          const [ip, port] = proxy.proxy.split(':');
-          const proxyUrl = `http://${proxy.proxy}`;
-          try {
-            const res = await fetch('https://discord.com/register', {
-              agent: new (require('https-proxy-agent'))(proxyUrl),
-              timeout: 7000,
-            });
-            if (res.ok) return proxy.proxy;
-          } catch {}
-        }
-        throw new Error('No working proxies found');
-      }
-
       // --- Run Python child process for each iteration with working proxy ---
       const results = [];
       for (let i = 0; i < numberValue; i++) {
-        let proxy = null;
-        try {
-          proxy = await getWorkingProxy();
-        } catch (e) {
-          await sendLogDm(userId, client, `No working proxies found for iteration ${i + 1}`);
-          continue;
-        }
         // Pass proxy to child process via env
         await new Promise((resolve, reject) => {
           const pythonScript = resolvePythonScript();
