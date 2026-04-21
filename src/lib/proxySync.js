@@ -199,7 +199,7 @@ export async function syncProxyDatabase() {
   };
 }
 
-export function startProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
+export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
   const runSync = async () => {
     try {
       const result = await syncProxyDatabase();
