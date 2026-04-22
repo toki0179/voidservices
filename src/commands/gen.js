@@ -266,7 +266,9 @@ export default {
         do {
           attempt++;
           if (attempt > 1) {
-            fullLogBuffer += `⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...\n`;
+            const remaining = maxAttempts - attempt + 1;
+            const logLine = `LOG: Iteration ${currentIter} failed (attempt ${attempt}/${maxAttempts}), retrying... ${remaining} attempt(s) remaining.`;
+            appendLog(logLine + '\n');  // This will add to embed and full log
           }
           result = await runPython(currentIter, iterations, onLog);
         } while (result.code !== 0 && attempt < maxAttempts);
