@@ -155,7 +155,7 @@ def run(playwright: Playwright) -> None:
     select_dropdown_with_arrows(page, "Year, Year", 23)
 
     print("LOG:Clicking consent checkbox")
-    checkbox = page.locator(".consentBox_d332d2 > .checkboxOption__714a9 > .checkboxIndicator__714a9 > .checkStroke__714a9")
+    checkbox =page.get_by_text("I have read and agree to")
     human_move_and_click(page, checkbox)
     human_delay(0.5, 1.0)
 
