@@ -110,10 +110,9 @@ MODEL_PARAMS = {
 
 def solve_captcha_with_ollama(client, model_name, extracted_text):
     available_models = client.list_models()
-    print(f"LOG:Available models: {available_models}")
     answer = None
     last_error = None
-    print("LOG:Solving captcha with LLM")
+    print("LOG:Solving captcha")
 
     # Try the user-specified model_name first, then others if it fails
     models_to_try = [model_name] + [m for m in available_models if m != model_name]
@@ -121,9 +120,7 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
     for model in models_to_try:
         params = MODEL_PARAMS.get(model, {})
         servers = client.get_model_servers(model)
-        print(f"LOG:Trying model: {model} with servers: {servers}")
         if not servers:
-            print(f"LOG:No servers found for model {model}, skipping.")
             continue
         preferred_url = _preferred_server.get(model)
         # Prioritize servers in Germany/Europe
@@ -144,8 +141,7 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
             "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
             f"Captcha: {extracted_text.strip()}"
         )
-        token_count = count_tokens(full_prompt)
-        print(f"LOG:Prompt token estimate: {token_count}")
+
         for server in servers:
             url = server.get('url')
             if not url:
@@ -167,12 +163,10 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
                 last_error = RuntimeError('Empty response body from upstream server')
             except Exception as server_error:
                 last_error = server_error
-                print(f"LOG:Server {url} for model {model} failed: {server_error}")
         if answer:
             break
     if not answer:
-        print(f"LOG:All models and servers failed. Last error: {last_error}")
-        return "I couldn't generate an answer right now."
+        return "I couldn't solve the captcha."
     return extract_answer_from_response(answer)
 
 def solve_captcha_loop(page, client, model_name, username):
