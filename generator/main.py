@@ -2,7 +2,8 @@ from dotenv import load_dotenv
 import random
 load_dotenv()
 from accounts_db import init_accounts_db, insert_account
-proxy = f"http://toki0179datacenter-{random.randint(1,100)}:bossandy12@p.webshare.io:80/"
+proxyNum = None
+proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
 # proxy = None
 
 import os
@@ -155,7 +156,6 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
                 if text:
                     _preferred_server[model] = url
                     answer = text.strip()
-                    print(f"LOG:Model {model} succeeded with server {url}")
                     break
                 last_error = RuntimeError('Empty response body from upstream server')
             except Exception as server_error:
@@ -175,14 +175,13 @@ def solve_captcha_loop(page, client, model_name, username):
         page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
         time.sleep(1)
     except Exception:
-        print("LOG:About button not found, continuing")
+        print("DEBUG:About button not found, continuing")
 
     try:
         page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
-        print("LOG: Clicked Accessibility Challenge button to enable accessibility mode (forced).")
         time.sleep(1)
     except Exception:
-        print("LOG: Accessibility Challenge button not found or not clickable after Menu button.")
+        print("DEBUG: Accessibility Challenge button not found or not clickable after Menu button.")
 
 
     while attempt < max_attempts:
@@ -194,7 +193,7 @@ def solve_captcha_loop(page, client, model_name, username):
         try:
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=10000)
         except Exception:
-            print("LOG: [solve_captcha_loop] Captcha iframe not found, skipping attempt.")
+            print("DEBUG: [solve_captcha_loop] Captcha iframe not found, skipping attempt.")
             continue
 
         # Take screenshot and OCR
@@ -203,7 +202,7 @@ def solve_captcha_loop(page, client, model_name, username):
         try:
             page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").screenshot(path=captcha_path)
         except Exception as e:
-            print(f"LOG: Failed to capture captcha text: {e}")
+            print(f"DEBUG: Failed to capture captcha text: {e}")
             time.sleep(2)
             continue
 
@@ -216,7 +215,7 @@ def solve_captcha_loop(page, client, model_name, username):
 
         extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
         if attempt == 1:
-            print(f"LOG: OCR extracted text: {extracted_text.strip()}")
+            print(f"DEBUG: OCR extracted text: {extracted_text.strip()}")
 
         answer = solve_captcha_with_ollama(client, model_name, extracted_text.strip())
         if attempt == 1:
@@ -246,26 +245,26 @@ def solve_captcha_loop(page, client, model_name, username):
             try:
                 page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
                 if attempt == 1:
-                    print("LOG: Iframe still present, may need another round")
+                    print("DEBUG: Iframe still present, may need another round")
                 # Check if text-text element is still visible, if not, we need to press the accessibility button
                 try:
                     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").wait_for(state="visible", timeout=3000)
                 except Exception:
-                    print("LOG: Text element not visible, trying to click accessibility button again")
+                    print("DEBUG: Text element not visible, trying to click accessibility button again")
                     try:
                         page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
                         time.sleep(1)
                         page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
-                        print("LOG: Clicked Accessibility Challenge button again.")
+                        print("DEBUG: Clicked Accessibility Challenge button again.")
                         time.sleep(1)
                     except Exception:
-                        print("LOG: Accessibility Challenge button not found on second attempt.")
+                        print("DEBUG: Accessibility Challenge button not found on second attempt.")
             except Exception:
                 print("LOG:Captcha solved!")
                 return True
 
         except Exception as e:
-            print(f"LOG: Error during captcha interaction: {e}")
+            print(f"DEBUG: Error during captcha interaction: {e}")
             time.sleep(2)
             continue
 
@@ -277,6 +276,7 @@ def run(playwright: Playwright) -> None:
     logging.basicConfig(level=logging.INFO)
 
     print(f"LOG:Launching browser")
+    proxyNum = random.randint(1,100)
     launch_args = {}
     proxy_url = proxy
     proxy_username = None
@@ -293,11 +293,11 @@ def run(playwright: Playwright) -> None:
     if 'proxy' in launch_args:
         proxy_info = launch_args['proxy']['server']
         if proxy_username and proxy_password:
-            print(f"LOG:Using proxy with auth.")
+            print(f"DEBUG:Using proxy with auth.")
         else:
-            print(f"LOG:Using proxy without auth.")
+            print(f"DEBUG:Using proxy without auth.")
     browser = playwright.chromium.launch(headless=True, **launch_args)
-    print("LOG:Creating browser context")
+    print("DEBUG:Creating browser context")
     
     # Randomize user agent and viewport
     user_agents = [
@@ -320,9 +320,9 @@ def run(playwright: Playwright) -> None:
     if proxy_username and proxy_password:
         context_args["http_credentials"] = {"username": proxy_username, "password": proxy_password}
     context = browser.new_context(**context_args)
-    print(f"LOG:Using user agent: {user_agent}")
-    print(f"LOG:Using viewport: {viewport}")
-    print(f"LOG:Using locale: {context_args['locale']}, timezone: {context_args['timezone_id']}")
+    print(f"DEBUG:Using user agent: {user_agent}")
+    print(f"DEBUG:Using viewport: {viewport}")
+    print(f"DEBUG:Using locale: {context_args['locale']}, timezone: {context_args['timezone_id']}")
     
     # Add extra stealth: random navigator properties
     page = context.new_page()
@@ -339,7 +339,7 @@ def run(playwright: Playwright) -> None:
     username = f"voidserv_{random_string(5)}"
     password = random_string(10)
 
-    print("LOG:Opening new page and applying stealth")
+    print("LOG:Opening new page")
     page = context.new_page()
     Stealth().apply_stealth_sync(page)
 
@@ -349,7 +349,7 @@ def run(playwright: Playwright) -> None:
     page.mouse.wheel(0, random.randint(50, 150))
     human_delay(0.5, 1.0)
 
-    print("LOG:Ensuring first registration input is ready")
+    print("DEBUG:Ensuring first registration input is ready")
     page.wait_for_selector('input[name="email"]', timeout=10000)
     print("LOG:Filling registration form")
     email = f"{random_string(8)}@shady.gg"
@@ -389,7 +389,7 @@ def run(playwright: Playwright) -> None:
                 print(f"LOG:Field empty, refilling")
                 human_type(page, locator, value)
         except Exception as e:
-            print(f"LOG:Error checking field: {e}")
+            print(f"DEBUG:Error checking field: {e}")
 
     print("LOG:Clicking create account button")
     create_btn = page.get_by_role("button", name="Create Account")
@@ -424,7 +424,7 @@ def run(playwright: Playwright) -> None:
         try:
             submit_btn = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="Submit")
             if submit_btn.is_visible():
-                print("LOG:Submit button still visible, clicking again")
+                print("DEBUG:Submit button still visible, clicking again")
                 human_move_and_click(page, submit_btn)
                 human_delay(1.0, 2.0)
         except Exception:
@@ -432,10 +432,10 @@ def run(playwright: Playwright) -> None:
         # After solving, check if the captcha iframe comes back
         try:
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=7000)
-            print("LOG:Captcha iframe reappeared after solving, starting another captcha loop.")
+            print("DEBUG:Captcha iframe reappeared after solving, starting another captcha loop.")
             continue
         except Exception:
-            print("LOG:Captcha iframe did not reappear after solving.")
+            print("DEBUG:Captcha iframe did not reappear after solving.")
             break
 
     print("LOG:Waiting for redirect")
@@ -452,10 +452,10 @@ if __name__ == "__main__":
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
     except Exception as e:
-        print(f"LOG: Process terminated: {type(e).__name__}: {e}")
+        print(f"DEBUG: Process terminated: {type(e).__name__}: {e}")
         import traceback
         for line in traceback.format_exc().splitlines():
-            print(f"LOG: {line}")
+            print(f"DEBUG: {line}")
         raise
     else:
         print("LOG: Process finished normally.")

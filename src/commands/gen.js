@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AttachmentBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { AttachmentBuilder, MessageFlags, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getAccountsByDate } from '../lib/accountsDb.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,6 +14,7 @@ const defaultVenvPython = path.join(projectRoot, '.venv', 'bin', 'python');
 const executionTimeoutMs = 600000;
 const maxOutputLength = 1800;
 const DISCORD_MESSAGE_LIMIT = 1900;
+const EMBED_DESCRIPTION_LIMIT = 4096;
 
 function resolvePythonCommand() {
   const configured = process.env.GEN_PYTHON;
@@ -182,45 +183,53 @@ export default {
     let allGeneratedFiles = [];
     let allScreenshotFiles = [];
 
+    // Set up log embed
+    const dmChannel = await client.users.createDM(userId);
+    const embed = new EmbedBuilder()
+      .setTitle('Generator Logs')
+      .setDescription('Waiting for logs...')
+      .setColor(0x00AE86)
+      .setTimestamp();
+    const logMessage = await dmChannel.send({ embeds: [embed] });
+    
+    let fullLogBuffer = '';
+    let embedDescriptionBuffer = '';
+    let updateTimeout = null;
+
+    const updateLogEmbed = async () => {
+      if (updateTimeout) clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(async () => {
+        let description = embedDescriptionBuffer;
+        if (description.length > EMBED_DESCRIPTION_LIMIT) {
+          description = '...(truncated)\n' + description.slice(-(EMBED_DESCRIPTION_LIMIT - 20));
+        }
+        const updatedEmbed = EmbedBuilder.from(embed).setDescription(description || 'No logs yet.');
+        await logMessage.edit({ embeds: [updatedEmbed] }).catch(console.error);
+        updateTimeout = null;
+      }, 1000);
+    };
+
+    const appendLog = (text) => {
+      fullLogBuffer += text;
+      embedDescriptionBuffer += text;
+      if (embedDescriptionBuffer.length > EMBED_DESCRIPTION_LIMIT * 2) {
+        embedDescriptionBuffer = embedDescriptionBuffer.slice(-EMBED_DESCRIPTION_LIMIT);
+      }
+      updateLogEmbed();
+    };
+
     await interaction.editReply({
-      content: `🚀 Generator will run **${iterations}** time(s). Sending logs via DM…\n*Check your DMs for real‑time progress.*`,
+      content: `🚀 Generator will run **${iterations}** time(s). Sending live logs via embed in DMs…\n*Check your DMs.*`,
     });
 
     for (let currentIter = 1; currentIter <= iterations; currentIter++) {
-      let logBuffer = '';
-      let pendingLine = '';
-      const logFlushInterval = 5000;
-
-      const flushLogs = async () => {
-        const allText = pendingLine + logBuffer;
-        if (!allText.trim()) return;
-
-        const lines = allText.split(/\r?\n/);
-        pendingLine = lines.pop() || '';
-        const logLines = lines.filter(line => line.startsWith(`[Iter ${currentIter}/${iterations}]`));
-
-        if (logLines.length) {
-          let message = `\`\`\`${logLines.join('\n')}\`\`\``;
-          if (message.length > DISCORD_MESSAGE_LIMIT) {
-            const available = DISCORD_MESSAGE_LIMIT - 10;
-            const truncatedContent = logLines.join('\n').slice(0, available) + '\n... (truncated)';
-            message = `\`\`\`${truncatedContent}\`\`\``;
-          }
-          await sendLogDm(userId, client, message);
-        }
-        logBuffer = '';
-      };
-
-      const logInterval = setInterval(async () => {
-        await flushLogs();
-      }, logFlushInterval);
-
+      // No separate log buffer per iteration; we use the global embed
       const onLog = (text) => {
-        logBuffer += text;
+        appendLog(text);
       };
 
       try {
-        await sendLogDm(userId, client, `🔄 Starting iteration ${currentIter}/${iterations}...`);
+        appendLog(`🔄 Starting iteration ${currentIter}/${iterations}...\n`);
 
         let result;
         let attempt = 0;
@@ -228,39 +237,48 @@ export default {
         do {
           attempt++;
           if (attempt > 1) {
-            await sendLogDm(userId, client, `⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...`);
+            appendLog(`⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...\n`);
           }
           result = await runPython(currentIter, iterations, onLog);
         } while (result.code !== 0 && attempt < maxAttempts);
-
-        clearInterval(logInterval);
-        await flushLogs();
 
         // Wait a moment for filesystem
         await new Promise(resolve => setTimeout(resolve, 500));
 
         if (result.code === 0) {
           totalSuccess++;
-          // Collect files
           if (result.generatedFiles.length) allGeneratedFiles.push(...result.generatedFiles);
           if (result.screenshotFiles.length) allScreenshotFiles.push(...result.screenshotFiles);
-          await sendLogDm(userId, client, `✅ Iteration ${currentIter}/${iterations} completed successfully.`);
+          appendLog(`✅ Iteration ${currentIter}/${iterations} completed successfully.\n`);
         } else {
           totalFailed++;
-          await sendLogDm(userId, client, `❌ Iteration ${currentIter}/${iterations} failed after ${attempt} attempts (exit code ${result.code}).`);
+          appendLog(`❌ Iteration ${currentIter}/${iterations} failed after ${attempt} attempts (exit code ${result.code}).\n`);
         }
       } catch (error) {
-        clearInterval(logInterval);
-        await flushLogs();
         totalFailed++;
-        await sendLogDm(userId, client, `💥 Iteration ${currentIter}/${iterations} crashed: ${error.message}`);
+        appendLog(`💥 Iteration ${currentIter}/${iterations} crashed: ${error.message}\n`);
       }
     }
 
-    // After all iterations, send summary and attachments
+    // Final update to embed
     const summary = `🏁 Generation finished.\n✅ Successful: ${totalSuccess}\n❌ Failed: ${totalFailed}`;
+    appendLog(`\n${summary}\n`);
+    if (updateTimeout) clearTimeout(updateTimeout);
+    let finalDescription = embedDescriptionBuffer;
+    if (finalDescription.length > EMBED_DESCRIPTION_LIMIT) {
+      finalDescription = '...(truncated)\n' + finalDescription.slice(-(EMBED_DESCRIPTION_LIMIT - 20));
+    }
+    const finalEmbed = EmbedBuilder.from(embed).setDescription(finalDescription || 'No logs.').setColor(totalFailed === 0 ? 0x00AE86 : 0xFF0000);
+    await logMessage.edit({ embeds: [finalEmbed] }).catch(console.error);
+
+    // Also send a full log file if logs are long
+    if (fullLogBuffer.length > 2000) {
+      const logFile = Buffer.from(fullLogBuffer, 'utf-8');
+      const logAttachment = new AttachmentBuilder(logFile, { name: 'full_logs.txt' });
+      await sendLogDm(userId, client, '📄 Full logs attached:', [logAttachment]);
+    }
+
     await interaction.editReply(summary);
-    await sendLogDm(userId, client, summary);
 
     // Send all collected files (credentials and screenshots)
     const attachments = [];
