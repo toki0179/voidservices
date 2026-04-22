@@ -289,7 +289,7 @@ def run(playwright: Playwright) -> None:
             print(f"LOG:Using proxy with auth: {proxy_username}:****@{proxy_info}")
         else:
             print(f"LOG:Using proxy without auth: {proxy_info}")
-    browser = playwright.chromium.launch(headless=False, **launch_args)
+    browser = playwright.chromium.launch(headless=True, **launch_args)
     print("LOG:Creating browser context")
     
     # Randomize user agent and viewport
