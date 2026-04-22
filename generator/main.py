@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import random
 load_dotenv()
-from accounts_db import init_accounts_db, insert_account
+# from accounts_db import init_accounts_db, insert_account
 proxyNum = None
 proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
 # proxy = None
@@ -103,23 +103,29 @@ def count_tokens(prompt):
     except Exception:
         return len(prompt.split())
 
+import requests  # add this import at the top
+
+import ollama
+from ollama import Client
+
+# Configure Ollama client with the custom host
+OLLAMA_HOST = 'http://127.0.0.1:11434'
+ollama_client = Client(host=OLLAMA_HOST, timeout=20)
+
 def solve_captcha_with_ollama(model_name, extracted_text):
     """Use local Ollama instance to solve captcha."""
+    prompt = (
+        "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
+        "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
+        f"Captcha: {extracted_text.strip()}"
+    )
     try:
-        # Initialize client with custom host
-        client = ollama.Client(host=OLLAMA_HOST)
-        
-        # Build prompt
-        full_prompt = (
-            "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
-            "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
-            f"Captcha: {extracted_text.strip()}"
+        response = ollama_client.generate(
+            model=model_name,
+            prompt=prompt,
+            stream=False,
         )
-        
-        # Generate response
-        response = client.generate(model=model_name, prompt=full_prompt, stream=False)
         answer = response.get('response', '').strip()
-        
         if answer:
             return extract_answer_from_response(answer)
         else:
@@ -372,7 +378,7 @@ def run(playwright: Playwright) -> None:
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
     time.sleep(2)
     
-    model_name = 'qwen3.5:2b'  # Change this to the model you have on your Ollama instance
+    model_name = 'qwen3.5:0.8b'  # Change this to the model you have on your Ollama instance
     
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
     while True:
@@ -406,10 +412,10 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
     # Save account to database
-    insert_account(email, password, username)
+    # insert_account(email, password, username)
 
 if __name__ == "__main__":
-    init_accounts_db()
+    # init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
