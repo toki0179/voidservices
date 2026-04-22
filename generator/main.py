@@ -403,7 +403,7 @@ def run(playwright: Playwright) -> None:
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
     time.sleep(2)
     
-    model_name = 'deepseek-r1:latest'
+    model_name = 'gpt-oss:20b'
     
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
     while True:
