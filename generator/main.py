@@ -37,26 +37,23 @@ def human_move_and_click(page, element, offset: int = 5) -> None:
         except Exception:
             count = 1
         if count == 0:
-            print(f"LOG: [human_move_and_click] No elements found")
             return
         element.wait_for(state="visible", timeout=5000)
         box = element.bounding_box()
         if box:
             end_x = box['x'] + random.uniform(offset, box['width'] - offset)
             end_y = box['y'] + random.uniform(offset, box['height'] - offset)
-            # Use built-in steps for human-like movement instead of manual jitter
             steps = random.randint(8, 18)
             page.mouse.move(end_x, end_y, steps=steps)
             human_delay(0.1, 0.35)
             page.mouse.click(end_x, end_y)
         else:
             element.click()
-    except Exception as e:
-        print(f"LOG: [human_move_and_click] Fallback click due to: {e}")
+    except Exception:
         try:
             element.click()
-        except Exception as e2:
-            print(f"LOG: [human_move_and_click] Click also failed: {e2}")
+        except Exception:
+            pass
 
 def human_type(page, locator, text, delay_range: tuple = (0.05, 0.2)) -> None:
     human_move_and_click(page, locator)
@@ -190,7 +187,8 @@ def solve_captcha_loop(page, client, model_name, username):
 
     while attempt < max_attempts:
         attempt += 1
-        print(f"LOG: Captcha solving attempt {attempt}")
+        if attempt == 1:
+            print(f"LOG:Solving captcha...")
 
         # Wait for iframe to be present and accessible
         try:
@@ -217,10 +215,12 @@ def solve_captcha_loop(page, client, model_name, username):
         os.remove(captcha_path)
 
         extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
-        print(f"LOG: OCR extracted text: {extracted_text.strip()}")
+        if attempt == 1:
+            print(f"LOG: OCR extracted text: {extracted_text.strip()}")
 
         answer = solve_captcha_with_ollama(client, model_name, extracted_text.strip())
-        print(f"LOG: Answer: {answer}")
+        if attempt == 1:
+            print(f"LOG: Answer: {answer}")
 
         # Fill and submit
         try:
@@ -245,7 +245,8 @@ def solve_captcha_loop(page, client, model_name, username):
             # Check if iframe disappears (captcha solved)
             try:
                 page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
-                print("LOG: Iframe still present, may need another round")
+                if attempt == 1:
+                    print("LOG: Iframe still present, may need another round")
                 # Check if text-text element is still visible, if not, we need to press the accessibility button
                 try:
                     page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").wait_for(state="visible", timeout=3000)
@@ -260,7 +261,7 @@ def solve_captcha_loop(page, client, model_name, username):
                     except Exception:
                         print("LOG: Accessibility Challenge button not found on second attempt.")
             except Exception:
-                print("LOG: Iframe disappeared - captcha solved")
+                print("LOG:Captcha solved!")
                 return True
 
         except Exception as e:
@@ -446,10 +447,20 @@ def run(playwright: Playwright) -> None:
     insert_account(email, password, username)
 
 if __name__ == "__main__":
+    import sys
     init_accounts_db()
+    iterations = 1
+    if len(sys.argv) > 1:
+        try:
+            iterations = int(sys.argv[1])
+        except Exception:
+            print(f"LOG: Invalid iteration argument: {sys.argv[1]}")
+            iterations = 1
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
-            run(playwright)
+            for i in range(iterations):
+                print(f"LOG: Starting iteration {i+1} of {iterations}")
+                run(playwright)
     except Exception as e:
         print(f"LOG: Process terminated: {type(e).__name__}: {e}")
         import traceback
