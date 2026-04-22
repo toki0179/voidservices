@@ -114,14 +114,18 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
     answer = None
     last_error = None
     print("LOG:Solving captcha with LLM")
-    for model_name in available_models:
-        params = MODEL_PARAMS.get(model_name, {})
-        servers = client.get_model_servers(model_name)
-        print(f"LOG:Trying model: {model_name} with servers: {servers}")
+
+    # Try the user-specified model_name first, then others if it fails
+    models_to_try = [model_name] + [m for m in available_models if m != model_name]
+
+    for model in models_to_try:
+        params = MODEL_PARAMS.get(model, {})
+        servers = client.get_model_servers(model)
+        print(f"LOG:Trying model: {model} with servers: {servers}")
         if not servers:
-            print(f"LOG:No servers found for model {model_name}, skipping.")
+            print(f"LOG:No servers found for model {model}, skipping.")
             continue
-        preferred_url = _preferred_server.get(model_name)
+        preferred_url = _preferred_server.get(model)
         if preferred_url:
             servers.sort(key=lambda server: server.get('url') != preferred_url)
         import random as _random
@@ -141,21 +145,21 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
             try:
                 from ollama import Client as OllamaClient
                 client_ollama = OllamaClient(host=url, timeout=15)
-                request = client.generate_api_request(model=model_name, prompt=full_prompt, **params)
+                request = client.generate_api_request(model=model, prompt=full_prompt, **params)
                 request['stream'] = False
                 response = client_ollama.generate(**request)
                 text = getattr(response, 'response', None)
                 if not text and isinstance(response, dict):
                     text = response.get('response')
                 if text:
-                    _preferred_server[model_name] = url
+                    _preferred_server[model] = url
                     answer = text.strip()
-                    print(f"LOG:Model {model_name} succeeded with server {url}")
+                    print(f"LOG:Model {model} succeeded with server {url}")
                     break
                 last_error = RuntimeError('Empty response body from upstream server')
             except Exception as server_error:
                 last_error = server_error
-                print(f"LOG:Server {url} for model {model_name} failed: {server_error}")
+                print(f"LOG:Server {url} for model {model} failed: {server_error}")
         if answer:
             break
     if not answer:
