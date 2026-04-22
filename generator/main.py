@@ -143,6 +143,15 @@ def solve_captcha_loop(page, client, model_name, username):
                 break
             except Exception:
                 print("LOG: [solve_captcha_loop] Captcha iframe not found, waiting...")
+                # Attempt to click the submit registration button if present
+                try:
+                    submit_btn = page.get_by_role("button", name="Create Account")
+                    if submit_btn.is_visible():
+                        print("LOG: [solve_captcha_loop] Clicking Create Account button while waiting for captcha iframe...")
+                        human_move_and_click(page, submit_btn)
+                        human_delay(0.5, 1.0)
+                except Exception:
+                    pass
                 time.sleep(1)
         if not iframe_found:
             print("LOG: [solve_captcha_loop] Captcha iframe did not appear after waiting, retrying...")
