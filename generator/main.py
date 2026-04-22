@@ -4,7 +4,7 @@ load_dotenv()
 from accounts_db import init_accounts_db, insert_account
 proxyNum = None
 proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
-model_name = 'qwen3.5:2b'
+model_name = 'phi3.5:latest'
 # proxy = None
 from ollama import Client as OllamaClient
 import os
@@ -114,7 +114,7 @@ def solve_captcha_with_ollama(model_name, extracted_text):
     client = OllamaClient(host="http://78.46.88.140:11434/")
     """Use local Ollama instance to solve captcha."""
     prompt = (
-        "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
+        "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text.\n"
         "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
         f"Captcha: {extracted_text.strip()}"
     )
@@ -131,7 +131,7 @@ def solve_captcha_with_ollama(model_name, extracted_text):
 
 def solve_captcha_loop(page, model_name, username):
     """Handle captcha solving including potential reopen/reload of iframe."""
-    max_attempts = 50
+    max_attempts = 10
     attempt = 0
 
     try:
@@ -259,7 +259,7 @@ def run(playwright: Playwright) -> None:
             print(f"DEBUG:Using proxy with auth.")
         else:
             print(f"DEBUG:Using proxy without auth.")
-    browser = playwright.chromium.launch(headless=True, **launch_args)
+    browser = playwright.chromium.launch(headless=False, **launch_args)
     print("DEBUG:Creating browser context")
     
     # Randomize user agent and viewport
@@ -405,7 +405,7 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
     # Save account to database
-    # insert_account(email, password, username)
+    insert_account(email, password, username)
 
 if __name__ == "__main__":
     init_accounts_db()
