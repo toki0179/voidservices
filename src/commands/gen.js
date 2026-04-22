@@ -15,6 +15,7 @@ const executionTimeoutMs = 600000;
 const maxOutputLength = 1800;
 const DISCORD_MESSAGE_LIMIT = 1900;
 const EMBED_DESCRIPTION_LIMIT = 4096;
+const MAX_DISPLAY_LINES = 5;
 
 function resolvePythonCommand() {
   const configured = process.env.GEN_PYTHON;
@@ -185,25 +186,23 @@ export default {
 
     // Set up log embed
     const dmChannel = await client.users.createDM(userId);
-    const embed = new EmbedBuilder()
-      .setTitle('Generator Logs')
-      .setDescription('Waiting for logs...')
-      .setColor(0x00AE86)
-      .setTimestamp();
-    const logMessage = await dmChannel.send({ embeds: [embed] });
-    
+    let currentIteration = 0;
+    let recentLogLines = []; // Stores last MAX_DISPLAY_LINES lines that contain "LOG:"
     let fullLogBuffer = '';
-    let embedDescriptionBuffer = '';
     let updateTimeout = null;
 
     const updateLogEmbed = async () => {
       if (updateTimeout) clearTimeout(updateTimeout);
       updateTimeout = setTimeout(async () => {
-        let description = embedDescriptionBuffer;
-        if (description.length > EMBED_DESCRIPTION_LIMIT) {
-          description = '...(truncated)\n' + description.slice(-(EMBED_DESCRIPTION_LIMIT - 20));
-        }
-        const updatedEmbed = EmbedBuilder.from(embed).setDescription(description || 'No logs yet.');
+        // Build description: each recent LOG line wrapped in backticks, joined by newline
+        const description = recentLogLines.map(line => `\`${line.replace(/`/g, '\\`')}\``).join('\n') || 'Waiting for LOG lines...';
+        
+        const updatedEmbed = new EmbedBuilder()
+          .setTitle(`Generator Logs ${currentIteration}/${iterations}`)
+          .setDescription(description)
+          .setColor(0x00AE86)
+          .setTimestamp();
+        
         await logMessage.edit({ embeds: [updatedEmbed] }).catch(console.error);
         updateTimeout = null;
       }, 1000);
@@ -211,19 +210,42 @@ export default {
 
     const appendLog = (text) => {
       fullLogBuffer += text;
-      embedDescriptionBuffer += text;
-      if (embedDescriptionBuffer.length > EMBED_DESCRIPTION_LIMIT * 2) {
-        embedDescriptionBuffer = embedDescriptionBuffer.slice(-EMBED_DESCRIPTION_LIMIT);
+      // Split into lines and process each line
+      const lines = text.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.includes('LOG:')) {
+          // Add to recent logs, keep only last MAX_DISPLAY_LINES
+          recentLogLines.push(line);
+          if (recentLogLines.length > MAX_DISPLAY_LINES) {
+            recentLogLines = recentLogLines.slice(-MAX_DISPLAY_LINES);
+          }
+          updateLogEmbed();
+        }
       }
-      updateLogEmbed();
     };
+
+    // Create initial embed
+    const embed = new EmbedBuilder()
+      .setTitle(`Generator Logs 0/${iterations}`)
+      .setDescription('Waiting for LOG lines...')
+      .setColor(0x00AE86)
+      .setTimestamp();
+    const logMessage = await dmChannel.send({ embeds: [embed] });
 
     await interaction.editReply({
       content: `🚀 Generator will run **${iterations}** time(s). Sending live logs via embed in DMs…\n*Check your DMs.*`,
     });
 
     for (let currentIter = 1; currentIter <= iterations; currentIter++) {
-      // No separate log buffer per iteration; we use the global embed
+      currentIteration = currentIter;
+      // Update title immediately
+      const tempEmbed = new EmbedBuilder()
+        .setTitle(`Generator Logs ${currentIteration}/${iterations}`)
+        .setDescription(recentLogLines.map(l => `\`${l.replace(/`/g, '\\`')}\``).join('\n') || 'Waiting for LOG lines...')
+        .setColor(0x00AE86)
+        .setTimestamp();
+      await logMessage.edit({ embeds: [tempEmbed] }).catch(console.error);
+
       const onLog = (text) => {
         appendLog(text);
       };
@@ -264,11 +286,12 @@ export default {
     const summary = `🏁 Generation finished.\n✅ Successful: ${totalSuccess}\n❌ Failed: ${totalFailed}`;
     appendLog(`\n${summary}\n`);
     if (updateTimeout) clearTimeout(updateTimeout);
-    let finalDescription = embedDescriptionBuffer;
-    if (finalDescription.length > EMBED_DESCRIPTION_LIMIT) {
-      finalDescription = '...(truncated)\n' + finalDescription.slice(-(EMBED_DESCRIPTION_LIMIT - 20));
-    }
-    const finalEmbed = EmbedBuilder.from(embed).setDescription(finalDescription || 'No logs.').setColor(totalFailed === 0 ? 0x00AE86 : 0xFF0000);
+    const finalDescription = recentLogLines.map(l => `\`${l.replace(/`/g, '\\`')}\``).join('\n') || 'No LOG lines.';
+    const finalEmbed = new EmbedBuilder()
+      .setTitle(`Generator Logs ${currentIteration}/${iterations} (Done)`)
+      .setDescription(finalDescription)
+      .setColor(totalFailed === 0 ? 0x00AE86 : 0xFF0000)
+      .setTimestamp();
     await logMessage.edit({ embeds: [finalEmbed] }).catch(console.error);
 
     // Also send a full log file if logs are long
