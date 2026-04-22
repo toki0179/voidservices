@@ -1,11 +1,12 @@
 from dotenv import load_dotenv
 import random
 load_dotenv()
-# from accounts_db import init_accounts_db, insert_account
+from accounts_db import init_accounts_db, insert_account
 proxyNum = None
 proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
+model_name = 'qwen3.5:2b'
 # proxy = None
-
+from ollama import Client as OllamaClient
 import os
 import time
 import string
@@ -13,13 +14,9 @@ import re
 import logging
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
-import ollama  # changed from ollamafreeapi to official ollama client
 from PIL import Image
 import pytesseract
 import tiktoken
-
-# Ollama instance URL
-OLLAMA_HOST = 'http://78.46.88.140:11434'
 
 # Ensure generator directory exists
 GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
@@ -103,14 +100,18 @@ def count_tokens(prompt):
     except Exception:
         return len(prompt.split())
 
-import requests  # add this import at the top
-
-import ollama
-from ollama import Client
-
-ollama_client = Client(host=OLLAMA_HOST, timeout=20)
-
 def solve_captcha_with_ollama(model_name, extracted_text):
+    MODEL_PARAMS = {
+        'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+        'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9, 'num_predict': 64},
+        'gpt-oss:20b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+        'mistral:latest': {'temperature': 0.7, 'top_p': 0.95, 'num_predict': 64},
+        'mistral-nemo:custom': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+        'bakllava:latest': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
+        'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
+    }
+    params = MODEL_PARAMS.get(model_name, {})
+    client = OllamaClient(host="http://78.46.88.140:11434/")
     """Use local Ollama instance to solve captcha."""
     prompt = (
         "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
@@ -118,12 +119,8 @@ def solve_captcha_with_ollama(model_name, extracted_text):
         f"Captcha: {extracted_text.strip()}"
     )
     try:
-        response = ollama_client.generate(
-            model=model_name,
-            prompt=prompt,
-            stream=False,
-        )
-        answer = response.get('response', '').strip()
+        response = client.generate(model=model_name, prompt=prompt, **params)
+        answer = response.get('response', '').strip() if isinstance(response, dict) else getattr(response, 'response', '').strip()
         if answer:
             return extract_answer_from_response(answer)
         else:
@@ -376,8 +373,6 @@ def run(playwright: Playwright) -> None:
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
     time.sleep(2)
     
-    model_name = 'qwen3.5:0.8b'  # Change this to the model you have on your Ollama instance
-    
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
     while True:
         solved = solve_captcha_loop(page, model_name, username)
@@ -413,7 +408,7 @@ def run(playwright: Playwright) -> None:
     # insert_account(email, password, username)
 
 if __name__ == "__main__":
-    # init_accounts_db()
+    init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
