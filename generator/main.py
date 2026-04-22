@@ -127,7 +127,7 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
 
 def solve_captcha_loop(page, client, model_name, username):
     """Handle captcha solving including potential reopen/reload of iframe."""
-    max_attempts = 5
+    max_attempts = 50
     attempt = 0
     
     while attempt < max_attempts:
