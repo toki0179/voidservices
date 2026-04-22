@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AttachmentBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { getAccountsByDate } from '../lib/accountsDb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -278,6 +279,25 @@ export default {
         } else {
           await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
         }
+      }
+
+      // Fetch accounts from Postgres and send as CSV attachment
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const accounts = await getAccountsByDate(today);
+        if (accounts && accounts.length) {
+          const csvHeader = 'username,email,password\n';
+          const csvRows = accounts.map(acc => `${acc.username},${acc.email},${acc.password}`).join('\n');
+          const csvContent = csvHeader + csvRows;
+          const csvBuffer = Buffer.from(csvContent, 'utf-8');
+          const csvAttachment = new AttachmentBuilder(csvBuffer, { name: `accounts_${today}.csv` });
+          await sendLogDm(userId, client, `Here are the generated accounts for ${today}:`, [csvAttachment]);
+        } else {
+          await sendLogDm(userId, client, `No accounts found in the database for ${today}.`);
+        }
+      } catch (err) {
+        console.error('[gen.js] Failed to fetch/send accounts from Postgres:', err);
+        await sendLogDm(userId, client, `Failed to fetch accounts from the database: ${err.message}`);
       }
     } catch (error) {
       clearInterval(logInterval);

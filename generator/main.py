@@ -448,6 +448,8 @@ def run(playwright: Playwright) -> None:
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
+    # Save account to database
+    insert_account(email, password, username)
 
 if __name__ == "__main__":
     init_accounts_db()
