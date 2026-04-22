@@ -13,11 +13,13 @@ import re
 import logging
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
-from ollamafreeapi import OllamaFreeAPI
+import ollama  # changed from ollamafreeapi to official ollama client
 from PIL import Image
 import pytesseract
 import tiktoken
 
+# Ollama instance URL
+OLLAMA_HOST = 'http://78.46.88.140:11434'
 
 # Ensure generator directory exists
 GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
@@ -101,72 +103,32 @@ def count_tokens(prompt):
     except Exception:
         return len(prompt.split())
 
-_preferred_server = {}
-MODEL_PARAMS = {
-    # Add model-specific params here if needed
-}
-
-def solve_captcha_with_ollama(client, model_name, extracted_text):
-    available_models = client.list_models()
-    answer = None
-    last_error = None
-    print("LOG:Solving captcha")
-
-    # Try the user-specified model_name first, then others if it fails
-    models_to_try = [model_name] + [m for m in available_models if m != model_name]
-
-    for model in models_to_try:
-        params = MODEL_PARAMS.get(model, {})
-        servers = client.get_model_servers(model)
-        if not servers:
-            continue
-        preferred_url = _preferred_server.get(model)
-        # Prioritize servers in Germany/Europe
-        def is_eu_server(server):
-            url = server.get('url', '').lower()
-            # Add more region keywords as needed
-            return any(region in url for region in ['de', 'germany', 'frankfurt', 'eu', 'europe'])
-        # Sort: preferred_url first, then EU servers, then others
-        servers.sort(key=lambda server: (
-            preferred_url and server.get('url') != preferred_url,
-            not is_eu_server(server)
-        ))
-        import random as _random
-        _random.shuffle(servers[1:])  # Shuffle only after the first (preferred/EU) server
-        # Build prompt: instruct model to output ONLY the answer
+def solve_captcha_with_ollama(model_name, extracted_text):
+    """Use local Ollama instance to solve captcha."""
+    try:
+        # Initialize client with custom host
+        client = ollama.Client(host=OLLAMA_HOST)
+        
+        # Build prompt
         full_prompt = (
             "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
             "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
             f"Captcha: {extracted_text.strip()}"
         )
-
-        for server in servers:
-            url = server.get('url')
-            if not url:
-                continue
-            try:
-                from ollama import Client as OllamaClient
-                client_ollama = OllamaClient(host=url, timeout=15)
-                request = client.generate_api_request(model=model, prompt=full_prompt, **params)
-                request['stream'] = False
-                response = client_ollama.generate(**request)
-                text = getattr(response, 'response', None)
-                if not text and isinstance(response, dict):
-                    text = response.get('response')
-                if text:
-                    _preferred_server[model] = url
-                    answer = text.strip()
-                    break
-                last_error = RuntimeError('Empty response body from upstream server')
-            except Exception as server_error:
-                last_error = server_error
+        
+        # Generate response
+        response = client.generate(model=model_name, prompt=full_prompt, stream=False)
+        answer = response.get('response', '').strip()
+        
         if answer:
-            break
-    if not answer:
+            return extract_answer_from_response(answer)
+        else:
+            return "I couldn't solve the captcha."
+    except Exception as e:
+        print(f"DEBUG: Ollama error: {e}")
         return "I couldn't solve the captcha."
-    return extract_answer_from_response(answer)
 
-def solve_captcha_loop(page, client, model_name, username):
+def solve_captcha_loop(page, model_name, username):
     """Handle captcha solving including potential reopen/reload of iframe."""
     max_attempts = 50
     attempt = 0
@@ -182,7 +144,6 @@ def solve_captcha_loop(page, client, model_name, username):
         time.sleep(1)
     except Exception:
         print("DEBUG: Accessibility Challenge button not found or not clickable after Menu button.")
-
 
     while attempt < max_attempts:
         attempt += 1
@@ -217,7 +178,7 @@ def solve_captcha_loop(page, client, model_name, username):
         if attempt == 1:
             print(f"DEBUG: OCR extracted text: {extracted_text.strip()}")
 
-        answer = solve_captcha_with_ollama(client, model_name, extracted_text.strip())
+        answer = solve_captcha_with_ollama(model_name, extracted_text.strip())
         if attempt == 1:
             print(f"LOG: Answer: {answer}")
 
@@ -272,7 +233,6 @@ def solve_captcha_loop(page, client, model_name, username):
     return False
 
 def run(playwright: Playwright) -> None:
-    client = OllamaFreeAPI()
     logging.basicConfig(level=logging.INFO)
 
     print(f"LOG:Launching browser")
@@ -412,11 +372,11 @@ def run(playwright: Playwright) -> None:
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
     time.sleep(2)
     
-    model_name = 'gpt-oss:20b'
+    model_name = 'qwen3.5:2b'  # Change this to the model you have on your Ollama instance
     
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
     while True:
-        solved = solve_captcha_loop(page, client, model_name, username)
+        solved = solve_captcha_loop(page, model_name, username)
         if not solved:
             print("LOG:Failed to solve captcha after multiple attempts")
             context.close()
