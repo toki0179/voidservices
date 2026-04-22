@@ -55,7 +55,7 @@ async function sendLogDm(userId, client, message, attachments = []) {
   }
 }
 
-function runPython(numberValue, onLog) {
+function runPython(iteration, totalIterations, onLog) {
   const pythonScript = resolvePythonScript();
   if (!existsSync(pythonScript)) {
     throw new Error(`Python script not found: ${pythonScript}`);
@@ -63,11 +63,10 @@ function runPython(numberValue, onLog) {
   const pythonCommand = resolvePythonCommand();
 
   return new Promise((resolve, reject) => {
-    const child = spawn(pythonCommand, [pythonScript, String(numberValue)], {
+    const child = spawn(pythonCommand, [pythonScript], {
       cwd: projectRoot,
       env: {
         ...process.env,
-        GEN_NUMBER: String(numberValue),
         PYTHONUNBUFFERED: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -86,6 +85,18 @@ function runPython(numberValue, onLog) {
       reject(new Error(`Python process timed out after ${executionTimeoutMs / 1000}s`));
     }, executionTimeoutMs);
 
+    // Helper to prefix logs with iteration info
+    const prefixLog = (text, streamType) => {
+      const lines = text.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.trim()) {
+          onLog(`[Iter ${iteration}/${totalIterations}] ${line}\n`, streamType);
+        } else {
+          onLog('\n', streamType);
+        }
+      }
+    };
+
     child.stdout.on('data', (chunk) => {
       const text = chunk.toString();
       stdout += text;
@@ -93,7 +104,7 @@ function runPython(numberValue, onLog) {
       const lines = stdoutBuffer.split(/\r?\n/);
       stdoutBuffer = lines.pop() || '';
       for (const line of lines) {
-        if (onLog) onLog(line + '\n', 'stdout');
+        prefixLog(line + '\n', 'stdout');
       }
     });
 
@@ -104,7 +115,7 @@ function runPython(numberValue, onLog) {
       const lines = stderrBuffer.split(/\r?\n/);
       stderrBuffer = lines.pop() || '';
       for (const line of lines) {
-        if (onLog) onLog(line + '\n', 'stderr');
+        prefixLog(line + '\n', 'stderr');
       }
     });
 
@@ -119,19 +130,21 @@ function runPython(numberValue, onLog) {
       if (finished) return;
       finished = true;
       clearTimeout(timeout);
-      if (stdoutBuffer && onLog) onLog(stdoutBuffer, 'stdout');
-      if (stderrBuffer && onLog) onLog(stderrBuffer, 'stderr');
+      if (stdoutBuffer) prefixLog(stdoutBuffer, 'stdout');
+      if (stderrBuffer) prefixLog(stderrBuffer, 'stderr');
 
-      let generatedFile = null;
-      let screenshotFile = null;
+      // Collect all credentials and screenshot files (multiple possible per run)
+      const generatedFiles = [];
+      const screenshotFiles = [];
       
-      const credsMatch = stdout.match(/LOG:?\s*Credentials saved to (.+)/);
-      if (credsMatch && credsMatch[1]) generatedFile = credsMatch[1].trim();
+      const credsMatches = stdout.matchAll(/LOG:?\s*Credentials saved to (.+)/g);
+      for (const match of credsMatches) {
+        if (match[1]) generatedFiles.push(match[1].trim());
+      }
       
-      const screenshotMatch = stdout.match(/LOG:?\s*Screenshot saved to (.+)/);
-      if (screenshotMatch && screenshotMatch[1]) {
-        screenshotFile = screenshotMatch[1].trim();
-        console.log(`[DEBUG] Captured screenshot path: ${screenshotFile}`);
+      const screenshotMatches = stdout.matchAll(/LOG:?\s*Screenshot saved to (.+)/g);
+      for (const match of screenshotMatches) {
+        if (match[1]) screenshotFiles.push(match[1].trim());
       }
       
       resolve({
@@ -139,8 +152,8 @@ function runPython(numberValue, onLog) {
         signal,
         stdout: trimOutput(stdout),
         stderr: trimOutput(stderr),
-        generatedFile,
-        screenshotFile,
+        generatedFiles,
+        screenshotFiles,
       });
     });
   });
@@ -149,161 +162,171 @@ function runPython(numberValue, onLog) {
 export default {
   data: new SlashCommandBuilder()
     .setName('gen')
-    .setDescription('Run the configured Python generator file with a number input')
+    .setDescription('Run the configured Python generator file multiple times')
     .addNumberOption((option) =>
-      option.setName('number').setDescription('Number of iterations').setRequired(true)
+      option.setName('iterations')
+        .setDescription('Number of times to run the generator')
+        .setRequired(true)
     ),
 
   async execute(interaction) {
-    const numberValue = interaction.options.getNumber('number', true);
+    const iterations = interaction.options.getNumber('iterations', true);
     const userId = interaction.user.id;
     const client = interaction.client;
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    let logBuffer = '';
-    let pendingLine = '';
-    const logFlushInterval = 5000;
+    // Overall status
+    let totalSuccess = 0;
+    let totalFailed = 0;
+    let allGeneratedFiles = [];
+    let allScreenshotFiles = [];
 
-    const flushLogs = async () => {
-      const allText = pendingLine + logBuffer;
-      if (!allText.trim()) return;
+    await interaction.editReply({
+      content: `🚀 Generator will run **${iterations}** time(s). Sending logs via DM…\n*Check your DMs for real‑time progress.*`,
+    });
 
-      const lines = allText.split(/\r?\n/);
-      pendingLine = lines.pop() || '';
-      const logLines = lines.filter(line => line.startsWith('LOG:'));
+    for (let currentIter = 1; currentIter <= iterations; currentIter++) {
+      let logBuffer = '';
+      let pendingLine = '';
+      const logFlushInterval = 5000;
 
-      if (logLines.length) {
-        let message = `\`\`\`[Iteration: ${numberValue}]\n${logLines.join('\n')}\`\`\``;
-        if (message.length > DISCORD_MESSAGE_LIMIT) {
-          const available = DISCORD_MESSAGE_LIMIT - `\`\`\`[Iteration: ${numberValue}]\n...\`\`\``.length - 10;
-          const truncatedContent = logLines.join('\n').slice(0, available) + '\n... (truncated)';
-          message = `\`\`\`[Iteration: ${numberValue}]\n${truncatedContent}\`\`\``;
-        }
-        await sendLogDm(userId, client, message);
-      }
-      logBuffer = '';
-    };
+      const flushLogs = async () => {
+        const allText = pendingLine + logBuffer;
+        if (!allText.trim()) return;
 
-    const logInterval = setInterval(async () => {
-      await flushLogs();
-    }, logFlushInterval);
+        const lines = allText.split(/\r?\n/);
+        pendingLine = lines.pop() || '';
+        const logLines = lines.filter(line => line.startsWith(`[Iter ${currentIter}/${iterations}]`));
 
-    const onLog = (text) => {
-      logBuffer += text;
-    };
-
-    try {
-      await interaction.editReply({
-        content: `🚀 Generation started with **${numberValue}** iterations. Sending logs via DM…\n*Check your DMs for real‑time progress.*`,
-      });
-
-      let result;
-      let attempt = 0;
-      const maxAttempts = 10;
-      do {
-        attempt++;
-        if (attempt > 1) {
-          await sendLogDm(userId, client, `Retrying iteration (attempt ${attempt}) due to previous failure...`);
-        }
-        result = await runPython(numberValue, onLog);
-      } while (result.code !== 0 && attempt < maxAttempts);
-
-      clearInterval(logInterval);
-      await flushLogs();
-
-      // Give filesystem a moment
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      let attachments = [];
-      let attachmentMsg = [];
-      
-      function findFile(basePath, filename) {
-        const candidates = [
-          basePath,
-          path.join(projectRoot, basePath),
-          path.join(projectRoot, 'generator', path.basename(basePath)),
-          path.join(projectRoot, path.basename(basePath)),
-        ];
-        if (filename) {
-          candidates.push(path.join(projectRoot, 'generator', filename));
-          candidates.push(path.join(projectRoot, filename));
-        }
-        for (const candidate of candidates) {
-          if (existsSync(candidate)) {
-            console.log(`[DEBUG] Found file at: ${candidate}`);
-            return candidate;
+        if (logLines.length) {
+          let message = `\`\`\`${logLines.join('\n')}\`\`\``;
+          if (message.length > DISCORD_MESSAGE_LIMIT) {
+            const available = DISCORD_MESSAGE_LIMIT - 10;
+            const truncatedContent = logLines.join('\n').slice(0, available) + '\n... (truncated)';
+            message = `\`\`\`${truncatedContent}\`\`\``;
           }
+          await sendLogDm(userId, client, message);
         }
-        return null;
-      }
-      
-      // Credentials file (if any)
-      if (result.generatedFile) {
-        const found = findFile(result.generatedFile, null);
-        if (found) {
-          const fileContent = readFileSync(found, 'utf-8');
-          attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
-            name: path.basename(found),
-          }));
-          attachmentMsg.push(`credentials file: ${path.basename(found)}`);
-        }
-      }
-      
-      // Screenshot file – try even if process failed
-      if (result.screenshotFile) {
-        const filename = path.basename(result.screenshotFile);
-        const found = findFile(result.screenshotFile, filename);
-        if (found) {
-          const stats = statSync(found);
-          console.log(`[DEBUG] Screenshot size: ${stats.size} bytes`);
-          attachments.push(new AttachmentBuilder(found));
-          attachmentMsg.push(`screenshot: ${path.basename(found)}`);
-        } else {
-          console.error(`[DEBUG] Screenshot not found: ${result.screenshotFile}`);
-          const genDir = path.join(projectRoot, 'generator');
-          if (existsSync(genDir)) {
-            const files = readdirSync(genDir);
-            console.log(`[DEBUG] Files in generator/: ${files.join(', ')}`);
-          }
-        }
-      }
-      
-      // Send attachments if any
-      if (attachments.length) {
-        await interaction.editReply(`✅ Generation ${result.code === 0 ? 'complete' : 'finished with warnings'} (exit code ${result.code}). ${attachmentMsg.join(' and ')} sent via DM.`);
-        await sendLogDm(userId, client, `Generated ${attachmentMsg.join(' and ')}`, attachments);
-      } else {
-        if (result.code !== 0) {
-          await interaction.editReply(`⚠️ Python process exited with code ${result.code}${result.signal ? ` (signal: ${result.signal})` : ''} after ${attempt} attempts.\nNo files were generated. Check DMs for logs.`);
-        } else {
-          await interaction.editReply(`✅ Generation complete with **${numberValue}** iterations.\nCheck your DMs for complete logs.`);
-        }
-      }
+        logBuffer = '';
+      };
 
-      // Fetch accounts from Postgres and send as CSV attachment
+      const logInterval = setInterval(async () => {
+        await flushLogs();
+      }, logFlushInterval);
+
+      const onLog = (text) => {
+        logBuffer += text;
+      };
+
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const accounts = await getAccountsByDate(today);
-        if (accounts && accounts.length) {
-          const csvHeader = 'username,email,password\n';
-          const csvRows = accounts.map(acc => `${acc.username},${acc.email},${acc.password}`).join('\n');
-          const csvContent = csvHeader + csvRows;
-          const csvBuffer = Buffer.from(csvContent, 'utf-8');
-          const csvAttachment = new AttachmentBuilder(csvBuffer, { name: `accounts_${today}.csv` });
-          await sendLogDm(userId, client, `Here are the generated accounts for ${today}:`, [csvAttachment]);
+        await sendLogDm(userId, client, `🔄 Starting iteration ${currentIter}/${iterations}...`);
+
+        let result;
+        let attempt = 0;
+        const maxAttempts = 10;
+        do {
+          attempt++;
+          if (attempt > 1) {
+            await sendLogDm(userId, client, `⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...`);
+          }
+          result = await runPython(currentIter, iterations, onLog);
+        } while (result.code !== 0 && attempt < maxAttempts);
+
+        clearInterval(logInterval);
+        await flushLogs();
+
+        // Wait a moment for filesystem
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (result.code === 0) {
+          totalSuccess++;
+          // Collect files
+          if (result.generatedFiles.length) allGeneratedFiles.push(...result.generatedFiles);
+          if (result.screenshotFiles.length) allScreenshotFiles.push(...result.screenshotFiles);
+          await sendLogDm(userId, client, `✅ Iteration ${currentIter}/${iterations} completed successfully.`);
         } else {
-          await sendLogDm(userId, client, `No accounts found in the database for ${today}.`);
+          totalFailed++;
+          await sendLogDm(userId, client, `❌ Iteration ${currentIter}/${iterations} failed after ${attempt} attempts (exit code ${result.code}).`);
         }
-      } catch (err) {
-        console.error('[gen.js] Failed to fetch/send accounts from Postgres:', err);
-        await sendLogDm(userId, client, `Failed to fetch accounts from the database: ${err.message}`);
+      } catch (error) {
+        clearInterval(logInterval);
+        await flushLogs();
+        totalFailed++;
+        await sendLogDm(userId, client, `💥 Iteration ${currentIter}/${iterations} crashed: ${error.message}`);
       }
-    } catch (error) {
-      clearInterval(logInterval);
-      await flushLogs();
-      console.error(`[gen.js] Error:`, error);
-      await interaction.editReply(`❌ Failed to launch Python process: ${error.message}`);
+    }
+
+    // After all iterations, send summary and attachments
+    const summary = `🏁 Generation finished.\n✅ Successful: ${totalSuccess}\n❌ Failed: ${totalFailed}`;
+    await interaction.editReply(summary);
+    await sendLogDm(userId, client, summary);
+
+    // Send all collected files (credentials and screenshots)
+    const attachments = [];
+    const attachmentNames = [];
+
+    function findFile(basePath, filename) {
+      const candidates = [
+        basePath,
+        path.join(projectRoot, basePath),
+        path.join(projectRoot, 'generator', path.basename(basePath)),
+        path.join(projectRoot, path.basename(basePath)),
+      ];
+      if (filename) {
+        candidates.push(path.join(projectRoot, 'generator', filename));
+        candidates.push(path.join(projectRoot, filename));
+      }
+      for (const candidate of candidates) {
+        if (existsSync(candidate)) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    for (const filePath of allGeneratedFiles) {
+      const found = findFile(filePath, null);
+      if (found) {
+        const fileContent = readFileSync(found, 'utf-8');
+        attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
+          name: path.basename(found),
+        }));
+        attachmentNames.push(`credentials: ${path.basename(found)}`);
+      }
+    }
+
+    for (const filePath of allScreenshotFiles) {
+      const found = findFile(filePath, null);
+      if (found) {
+        attachments.push(new AttachmentBuilder(found));
+        attachmentNames.push(`screenshot: ${path.basename(found)}`);
+      }
+    }
+
+    if (attachments.length) {
+      await sendLogDm(userId, client, `📎 Attachments from all runs: ${attachmentNames.join(', ')}`, attachments);
+    } else {
+      await sendLogDm(userId, client, `⚠️ No files were generated in any successful run.`);
+    }
+
+    // Fetch accounts from Postgres and send as CSV attachment
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const accounts = await getAccountsByDate(today);
+      if (accounts && accounts.length) {
+        const csvHeader = 'username,email,password\n';
+        const csvRows = accounts.map(acc => `${acc.username},${acc.email},${acc.password}`).join('\n');
+        const csvContent = csvHeader + csvRows;
+        const csvBuffer = Buffer.from(csvContent, 'utf-8');
+        const csvAttachment = new AttachmentBuilder(csvBuffer, { name: `accounts_${today}.csv` });
+        await sendLogDm(userId, client, `📊 Here are all generated accounts for ${today}:`, [csvAttachment]);
+      } else {
+        await sendLogDm(userId, client, `📭 No accounts found in the database for ${today}.`);
+      }
+    } catch (err) {
+      console.error('[gen.js] Failed to fetch/send accounts from Postgres:', err);
+      await sendLogDm(userId, client, `❌ Failed to fetch accounts from the database: ${err.message}`);
     }
   },
 };

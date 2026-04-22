@@ -447,20 +447,10 @@ def run(playwright: Playwright) -> None:
     insert_account(email, password, username)
 
 if __name__ == "__main__":
-    import sys
     init_accounts_db()
-    iterations = 1
-    if len(sys.argv) > 1:
-        try:
-            iterations = int(sys.argv[1])
-        except Exception:
-            print(f"LOG: Invalid iteration argument: {sys.argv[1]}")
-            iterations = 1
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
-            for i in range(iterations):
-                print(f"LOG: Starting iteration {i+1} of {iterations}")
-                run(playwright)
+            run(playwright)
     except Exception as e:
         print(f"LOG: Process terminated: {type(e).__name__}: {e}")
         import traceback
