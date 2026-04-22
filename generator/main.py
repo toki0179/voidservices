@@ -108,8 +108,6 @@ import requests  # add this import at the top
 import ollama
 from ollama import Client
 
-# Configure Ollama client with the custom host
-OLLAMA_HOST = 'http://127.0.0.1:11434'
 ollama_client = Client(host=OLLAMA_HOST, timeout=20)
 
 def solve_captcha_with_ollama(model_name, extracted_text):
