@@ -1,380 +1,234 @@
-import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { AttachmentBuilder, MessageFlags, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getAccountsByDate } from '../lib/accountsDb.js';
+import net from 'node:net';
+import { getAllResidentialProxies, replaceResidentialProxies } from './proxyDb.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..', '..');
+const PROXY_SOURCES = [
+  'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
+  'https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt',
+  'https://raw.githubusercontent.com/opsxcq/proxy-list/master/list.txt',
+  'https://www.proxy-list.download/api/v1/get?type=http',
+];
 
-const defaultScript = path.join(projectRoot, 'generator', 'main.py');
-const defaultVenvPython = path.join(projectRoot, '.venv', 'bin', 'python');
-const executionTimeoutMs = 600000;
-const maxOutputLength = 1800;
-const DISCORD_MESSAGE_LIMIT = 1900;
-const EMBED_DESCRIPTION_LIMIT = 4096;
-const MAX_DISPLAY_LINES = 5;
+const FETCH_TIMEOUT_MS = 5000;
+const SOCKET_TIMEOUT_MS = 3500;
+const MAX_PROXIES_PER_SOURCE = 400;
+const MAX_CANDIDATE_PROXIES = 800;
+const LOOKUP_CONCURRENCY = 20;
+const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-function resolvePythonCommand() {
-  const configured = process.env.GEN_PYTHON;
-  if (configured && existsSync(configured)) return configured;
-  if (existsSync(defaultVenvPython)) return defaultVenvPython;
-  return 'python3';
-}
-
-function resolvePythonScript() {
-  const configured = process.env.GEN_SCRIPT;
-  if (configured && existsSync(configured)) return configured;
-  return defaultScript;
-}
-
-function trimOutput(value) {
-  const text = String(value || '').trim();
-  if (!text) return 'No output.';
-  if (text.length <= maxOutputLength) return text;
-  return `${text.slice(0, maxOutputLength)}\n... output truncated ...`;
-}
-
-async function sendLogDm(userId, client, message, attachments = []) {
-  if (!message || typeof message !== 'string') {
-    console.error(`[sendLogDm] Invalid message: ${message}`);
-    return;
-  }
-
-  let finalMessage = message;
-  if (finalMessage.length > DISCORD_MESSAGE_LIMIT) {
-    finalMessage = finalMessage.slice(0, DISCORD_MESSAGE_LIMIT - 50) + '\n... (truncated)';
-  }
+async function fetchTextWithTimeout(url) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
-    const user = await client.users.fetch(userId);
-    await user.send({ content: finalMessage, files: attachments });
-    console.log(`[sendLogDm] Sent DM to ${userId} with ${attachments.length} attachment(s)`);
-  } catch (error) {
-    console.error(`[sendLogDm] Failed to send DM to ${userId}:`, error);
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      return '';
+    }
+    return await response.text();
+  } catch {
+    return '';
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
-function runPython(iteration, totalIterations, onLog) {
-  const pythonScript = resolvePythonScript();
-  if (!existsSync(pythonScript)) {
-    throw new Error(`Python script not found: ${pythonScript}`);
-  }
-  const pythonCommand = resolvePythonCommand();
+async function fetchJsonWithTimeout(url) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-  return new Promise((resolve, reject) => {
-    const child = spawn(pythonCommand, [pythonScript], {
-      cwd: projectRoot,
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1',
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    let stdout = '';
-    let stderr = '';
-    let finished = false;
-    let stdoutBuffer = '';
-    let stderrBuffer = '';
-
-    const timeout = setTimeout(() => {
-      if (finished) return;
-      finished = true;
-      child.kill('SIGTERM');
-      reject(new Error(`Python process timed out after ${executionTimeoutMs / 1000}s`));
-    }, executionTimeoutMs);
-
-    // Helper to prefix logs with iteration info
-    const prefixLog = (text, streamType) => {
-      const lines = text.split(/\r?\n/);
-      for (const line of lines) {
-        if (line.trim()) {
-          const prefixedLine = `[Iter ${iteration}/${totalIterations}] ${line}\n`;
-          onLog(prefixedLine, streamType);
-        } else {
-          onLog('\n', streamType);
-        }
-      }
-    };
-
-    child.stdout.on('data', (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      stdoutBuffer += text;
-      const lines = stdoutBuffer.split(/\r?\n/);
-      stdoutBuffer = lines.pop() || '';
-      for (const line of lines) {
-        prefixLog(line + '\n', 'stdout');
-      }
-    });
-
-    child.stderr.on('data', (chunk) => {
-      const text = chunk.toString();
-      stderr += text;
-      stderrBuffer += text;
-      const lines = stderrBuffer.split(/\r?\n/);
-      stderrBuffer = lines.pop() || '';
-      for (const line of lines) {
-        prefixLog(line + '\n', 'stderr');
-      }
-    });
-
-    child.on('error', (error) => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timeout);
-      reject(error);
-    });
-
-    child.on('close', (code, signal) => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timeout);
-      if (stdoutBuffer) prefixLog(stdoutBuffer, 'stdout');
-      if (stderrBuffer) prefixLog(stderrBuffer, 'stderr');
-
-      // Collect all credentials and screenshot files (multiple possible per run)
-      const generatedFiles = [];
-      const screenshotFiles = [];
-      
-      const credsMatches = stdout.matchAll(/LOG:?\s*Credentials saved to (.+)/g);
-      for (const match of credsMatches) {
-        if (match[1]) generatedFiles.push(match[1].trim());
-      }
-      
-      const screenshotMatches = stdout.matchAll(/LOG:?\s*Screenshot saved to (.+)/g);
-      for (const match of screenshotMatches) {
-        if (match[1]) screenshotFiles.push(match[1].trim());
-      }
-      
-      resolve({
-        code,
-        signal,
-        stdout: trimOutput(stdout),
-        stderr: trimOutput(stderr),
-        generatedFiles,
-        screenshotFiles,
-      });
-    });
-  });
-}
-
-export default {
-  data: new SlashCommandBuilder()
-    .setName('gen')
-    .setDescription('Run the configured Python generator file multiple times')
-    .addNumberOption((option) =>
-      option.setName('iterations')
-        .setDescription('Number of times to run the generator')
-        .setRequired(true)
-    ),
-
-  async execute(interaction) {
-    const iterations = interaction.options.getNumber('iterations', true);
-    const userId = interaction.user.id;
-    const client = interaction.client;
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-    // Overall status
-    let totalSuccess = 0;
-    let totalFailed = 0;
-    let allGeneratedFiles = [];
-    let allScreenshotFiles = [];
-
-    // Set up log embed
-    const dmChannel = await client.users.createDM(userId);
-    let currentIteration = 0;
-    let recentLogLines = []; // Stores LOG lines, max 5 then reset
-    let fullLogBuffer = '';
-    let updateTimeout = null;
-
-    const updateLogEmbed = async () => {
-      if (updateTimeout) clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(async () => {
-        // Build description: each recent LOG line wrapped in backticks, joined by newline
-        const description = recentLogLines.map(line => `\`${line.replace(/`/g, '\\`')}\``).join('\n') || 'Waiting for LOG lines...';
-        
-        const updatedEmbed = new EmbedBuilder()
-          .setTitle(`Generator Logs ${currentIteration}/${iterations}`)
-          .setDescription(description)
-          .setColor(0x00AE86)
-          .setTimestamp();
-        
-        await logMessage.edit({ embeds: [updatedEmbed] }).catch(console.error);
-        updateTimeout = null;
-      }, 500); // faster update for better responsiveness
-    };
-
-    const appendLog = (text) => {
-      fullLogBuffer += text;
-      // Split into lines and process each line
-      const lines = text.split(/\r?\n/);
-      for (const line of lines) {
-        // Log to console for both DEBUG and LOG lines
-        if (line.includes('DEBUG:') || line.includes('LOG:')) {
-          console.log(line);
-        }
-        
-        if (line.includes('LOG:')) {
-          // If we already have MAX_DISPLAY_LINES, clear all and then add this new one
-          if (recentLogLines.length >= MAX_DISPLAY_LINES) {
-            recentLogLines = []; // delete all existing lines
-          }
-          recentLogLines.push(line);
-          updateLogEmbed();
-        }
-      }
-    };
-
-    // Create initial embed
-    const embed = new EmbedBuilder()
-      .setTitle(`Generator Logs 0/${iterations}`)
-      .setDescription('Waiting for LOG lines...')
-      .setColor(0x00AE86)
-      .setTimestamp();
-    const logMessage = await dmChannel.send({ embeds: [embed] });
-
-    await interaction.editReply({
-      content: `🚀 Generator will run **${iterations}** time(s). Sending live logs via embed in DMs…\n*Check your DMs.*`,
-    });
-
-    for (let currentIter = 1; currentIter <= iterations; currentIter++) {
-      currentIteration = currentIter;
-      // Update title immediately
-      const tempEmbed = new EmbedBuilder()
-        .setTitle(`Generator Logs ${currentIteration}/${iterations}`)
-        .setDescription(recentLogLines.map(l => `\`${l.replace(/`/g, '\\`')}\``).join('\n') || 'Waiting for LOG lines...')
-        .setColor(0x00AE86)
-        .setTimestamp();
-      await logMessage.edit({ embeds: [tempEmbed] }).catch(console.error);
-
-      const onLog = (text) => {
-        appendLog(text);
-      };
-
-      try {
-        // Log start message (doesn't contain LOG:, so won't appear in embed but stored in full log)
-        fullLogBuffer += `🔄 Starting iteration ${currentIter}/${iterations}...\n`;
-
-        let result;
-        let attempt = 0;
-        const maxAttempts = 10;
-        do {
-          attempt++;
-          if (attempt > 1) {
-            fullLogBuffer += `⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...\n`;
-          }
-          result = await runPython(currentIter, iterations, onLog);
-        } while (result.code !== 0 && attempt < maxAttempts);
-
-        // Wait a moment for filesystem
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        if (result.code === 0) {
-          totalSuccess++;
-          if (result.generatedFiles.length) allGeneratedFiles.push(...result.generatedFiles);
-          if (result.screenshotFiles.length) allScreenshotFiles.push(...result.screenshotFiles);
-          fullLogBuffer += `✅ Iteration ${currentIter}/${iterations} completed successfully.\n`;
-        } else {
-          totalFailed++;
-          fullLogBuffer += `❌ Iteration ${currentIter}/${iterations} failed after ${attempt} attempts (exit code ${result.code}).\n`;
-        }
-      } catch (error) {
-        totalFailed++;
-        fullLogBuffer += `💥 Iteration ${currentIter}/${iterations} crashed: ${error.message}\n`;
-      }
-    }
-
-    // Final update to embed
-    const summary = `🏁 Generation finished.\n✅ Successful: ${totalSuccess}\n❌ Failed: ${totalFailed}`;
-    fullLogBuffer += `\n${summary}\n`;
-    if (updateTimeout) clearTimeout(updateTimeout);
-    const finalDescription = recentLogLines.map(l => `\`${l.replace(/`/g, '\\`')}\``).join('\n') || 'No LOG lines.';
-    const finalEmbed = new EmbedBuilder()
-      .setTitle(`Generator Logs ${currentIteration}/${iterations} (Done)`)
-      .setDescription(finalDescription)
-      .setColor(totalFailed === 0 ? 0x00AE86 : 0xFF0000)
-      .setTimestamp();
-    await logMessage.edit({ embeds: [finalEmbed] }).catch(console.error);
-
-    // Also send a full log file if logs are long
-    if (fullLogBuffer.length > 2000) {
-      const logFile = Buffer.from(fullLogBuffer, 'utf-8');
-      const logAttachment = new AttachmentBuilder(logFile, { name: 'full_logs.txt' });
-      await sendLogDm(userId, client, '📄 Full logs attached:', [logAttachment]);
-    }
-
-    await interaction.editReply(summary);
-
-    // Send all collected files (credentials and screenshots)
-    const attachments = [];
-    const attachmentNames = [];
-
-    function findFile(basePath, filename) {
-      const candidates = [
-        basePath,
-        path.join(projectRoot, basePath),
-        path.join(projectRoot, 'generator', path.basename(basePath)),
-        path.join(projectRoot, path.basename(basePath)),
-      ];
-      if (filename) {
-        candidates.push(path.join(projectRoot, 'generator', filename));
-        candidates.push(path.join(projectRoot, filename));
-      }
-      for (const candidate of candidates) {
-        if (existsSync(candidate)) {
-          return candidate;
-        }
-      }
+    if (!response.ok) {
       return null;
     }
 
-    for (const filePath of allGeneratedFiles) {
-      const found = findFile(filePath, null);
-      if (found) {
-        const fileContent = readFileSync(found, 'utf-8');
-        attachments.push(new AttachmentBuilder(Buffer.from(fileContent), {
-          name: path.basename(found),
-        }));
-        attachmentNames.push(`credentials: ${path.basename(found)}`);
+    return await response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function parseProxyEndpoint(proxy, source) {
+  const trimmed = String(proxy || '').trim();
+  const match = trimmed.match(/^(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})$/);
+
+  if (!match) {
+    return null;
+  }
+  const ip = match[1];
+  const port = Number(match[2]);
+  const octets = ip.split('.').map(Number);
+  const validIp = octets.length === 4 && octets.every(octet => Number.isInteger(octet) && octet >= 0 && octet <= 255);
+  const validPort = Number.isInteger(port) && port > 0 && port <= 65535;
+  if (!validIp || !validPort) {
+    return null;
+  }
+
+  return {
+    proxy: `${ip}:${port}`,
+    ip,
+    port,
+    source: source || null,
+  };
+}
+
+async function validateProxy(proxyInfo) {
+  const { ip, port } = proxyInfo;
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: ip, port, timeout: SOCKET_TIMEOUT_MS });
+    const onError = () => {
+      socket.destroy();
+      resolve(false);
+    };
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', onError);
+    socket.once('timeout', onError);
+    socket.setTimeout(SOCKET_TIMEOUT_MS);
+  });
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const output = new Array(items.length);
+  let index = 0;
+
+  async function worker() {
+    while (index < items.length) {
+      const current = index;
+      index += 1;
+      output[current] = await mapper(items[current], current);
+    }
+  }
+
+  const workerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return output;
+}
+
+async function fetchCandidateProxies() {
+  const candidates = new Map();
+
+  for (const source of PROXY_SOURCES) {
+    const text = await fetchTextWithTimeout(source);
+    if (!text) {
+      continue;
+    }
+
+    const lines = text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .slice(0, MAX_PROXIES_PER_SOURCE);
+
+    for (const line of lines) {
+      const parsed = parseProxyEndpoint(line, source);
+      if (parsed) {
+        candidates.set(parsed.proxy, parsed);
+      }
+
+      if (candidates.size >= MAX_CANDIDATE_PROXIES) {
+        break;
       }
     }
 
-    for (const filePath of allScreenshotFiles) {
-      const found = findFile(filePath, null);
-      if (found) {
-        attachments.push(new AttachmentBuilder(found));
-        attachmentNames.push(`screenshot: ${path.basename(found)}`);
-      }
+    if (candidates.size >= MAX_CANDIDATE_PROXIES) {
+      break;
     }
+  }
 
-    if (attachments.length) {
-      await sendLogDm(userId, client, `📎 Attachments from all runs: ${attachmentNames.join(', ')}`, attachments);
-    } else {
-      await sendLogDm(userId, client, `⚠️ No files were generated in any successful run.`);
-    }
+  return Array.from(candidates.values());
+}
 
-    // Fetch accounts from Postgres and send as CSV attachment
+export async function syncProxyDatabase() {
+  let existingProxiesList = await getAllResidentialProxies();
+  if (!Array.isArray(existingProxiesList)) {
+    console.warn('[proxy-sync] getAllResidentialProxies returned non-array:', existingProxiesList);
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      const accounts = await getAccountsByDate(today);
-      if (accounts && accounts.length) {
-        const csvHeader = 'username,email,password\n';
-        const csvRows = accounts.map(acc => `${acc.username},${acc.email},${acc.password}`).join('\n');
-        const csvContent = csvHeader + csvRows;
-        const csvBuffer = Buffer.from(csvContent, 'utf-8');
-        const csvAttachment = new AttachmentBuilder(csvBuffer, { name: `accounts_${today}.csv` });
-        await sendLogDm(userId, client, `📊 Here are all generated accounts for ${today}:`, [csvAttachment]);
-      } else {
-        await sendLogDm(userId, client, `📭 No accounts found in the database for ${today}.`);
-      }
-    } catch (err) {
-      console.error('[gen.js] Failed to fetch/send accounts from Postgres:', err);
-      await sendLogDm(userId, client, `❌ Failed to fetch accounts from the database: ${err.message}`);
+      existingProxiesList = Array.from(existingProxiesList || []);
+    } catch (e) {
+      existingProxiesList = [];
     }
-  },
-};
+  }
+  const existingProxies = new Set(existingProxiesList);
+  const candidates = await fetchCandidateProxies();
+
+  if (candidates.length === 0) {
+    const removed = existingProxies.size;
+    replaceResidentialProxies([]);
+    return {
+      candidates: 0,
+      active: 0,
+      restocked: 0,
+      removed,
+    };
+  }
+
+  const checks = await mapWithConcurrency(candidates, LOOKUP_CONCURRENCY, async (proxy) => {
+    const valid = await validateProxy(proxy);
+    return {
+      proxy,
+      valid,
+    };
+  });
+
+  const validProxies = checks.filter(result => result.valid).map(result => result.proxy);
+  const nextProxySet = new Set(validProxies.map(proxy => proxy.proxy));
+
+  let restocked = 0;
+  for (const proxy of nextProxySet) {
+    if (!existingProxies.has(proxy)) {
+      restocked += 1;
+    }
+  }
+
+  let removed = 0;
+  for (const proxy of existingProxies) {
+    if (!nextProxySet.has(proxy)) {
+      removed += 1;
+    }
+  }
+
+  replaceResidentialProxies(validProxies);
+
+  return {
+    candidates: candidates.length,
+    active: validProxies.length,
+    restocked,
+    removed,
+  };
+}
+
+export function startResidentialProxySyncJob({ onRunCompleted, onRunFailed } = {}) {
+  const runSync = async () => {
+    try {
+      const result = await syncProxyDatabase();
+      console.log(
+        `[proxy-sync] Completed: ${result.active}/${result.candidates} proxies active.`
+      );
+      if (typeof onRunCompleted === 'function') {
+        await onRunCompleted(result);
+      }
+    } catch (error) {
+      console.error('[proxy-sync] Failed:', error);
+      if (typeof onRunFailed === 'function') {
+        await onRunFailed(error);
+      }
+    }
+  };
+
+  // Run immediately and then schedule daily
+  void runSync();
+  return setInterval(() => {
+    void runSync();
+  }, DAILY_INTERVAL_MS);
+}
