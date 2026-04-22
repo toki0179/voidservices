@@ -1,21 +1,22 @@
 from dotenv import load_dotenv
+import random
 load_dotenv()
 from accounts_db import init_accounts_db, insert_account
-proxy = 'http://toki0179-DE-rotate:bossandy12@p.webshare.io:80'
+proxy = f"http://toki0179datacenter-{random.randint(1,100)}:bossandy12@p.webshare.io:80/"
 # proxy = None
 
 import os
-import random
 import time
 import string
 import re
 import logging
 from playwright.sync_api import Playwright, sync_playwright
 from playwright_stealth import Stealth
-from ollama import Client as OllamaClient
+from ollamafreeapi import OllamaFreeAPI
 from PIL import Image
 import pytesseract
 import tiktoken
+
 
 # Ensure generator directory exists
 GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
@@ -41,11 +42,13 @@ def human_move_and_click(page, element, offset: int = 5) -> None:
         element.wait_for(state="visible", timeout=5000)
         box = element.bounding_box()
         if box:
-            x = box['x'] + random.uniform(offset, box['width'] - offset)
-            y = box['y'] + random.uniform(offset, box['height'] - offset)
-            page.mouse.move(x, y)
-            human_delay(0.1, 0.3)
-            page.mouse.click(x, y)
+            end_x = box['x'] + random.uniform(offset, box['width'] - offset)
+            end_y = box['y'] + random.uniform(offset, box['height'] - offset)
+            # Use built-in steps for human-like movement instead of manual jitter
+            steps = random.randint(8, 18)
+            page.mouse.move(end_x, end_y, steps=steps)
+            human_delay(0.1, 0.35)
+            page.mouse.click(end_x, end_y)
         else:
             element.click()
     except Exception as e:
@@ -57,14 +60,14 @@ def human_move_and_click(page, element, offset: int = 5) -> None:
 
 def human_type(page, locator, text, delay_range: tuple = (0.05, 0.2)) -> None:
     human_move_and_click(page, locator)
-    human_delay(0.1, 0.3)
+    human_delay(random.uniform(0.08, 0.35), random.uniform(0.18, 0.45))
     page.keyboard.press("Control+A")
-    human_delay(0.05, 0.1)
+    human_delay(random.uniform(0.03, 0.13), random.uniform(0.08, 0.18))
     page.keyboard.press("Delete")
-    human_delay(0.1, 0.2)
+    human_delay(random.uniform(0.09, 0.22), random.uniform(0.15, 0.33))
     for ch in text:
-        page.keyboard.type(ch, delay=random.uniform(*delay_range))
-        human_delay(0.02, 0.07)
+        page.keyboard.type(ch, delay=random.uniform(0.04, 0.28))
+        human_delay(random.uniform(0.01, 0.12), random.uniform(0.03, 0.18))
 
 def select_dropdown_with_arrows(page, dropdown_text: str, down_presses: int) -> None:
     dropdown = page.get_by_text(dropdown_text)
@@ -92,83 +95,103 @@ def extract_answer_from_response(raw_response: str) -> str:
     last_token = last_token.rstrip('.,!?;:')
     return last_token
 
-def solve_captcha_with_ollama(client, model_name, extracted_text):
-    prompt = f"""
-    You are a precise assistant. Given an instruction like "Change only the first occurrence of X to Y in WORD", output the transformed word with EXACTLY the same letters except the specified change. Do not delete or shift any letters. Do not output anything else.
-    Examples:
-    - "Change only the first occurrence of i to x in shipping" -> shxpping
-    - "Change only the first occurrence of a to b in banana" -> bbnaana
-    - "Replace the second 'l' with 'p' in hello" -> heplo
-    - "Change the last letter of hello to x" -> hellx
-    Now follow exactly. Output only the answer.
-    {extracted_text}
-    """
+def count_tokens(prompt):
+    # Use tiktoken if available, fallback to length
     try:
-        response = client.generate(model=model_name, prompt=prompt)
-        if hasattr(response, 'response'):
-            raw = response.response
-        elif isinstance(response, dict):
-            raw = response.get('response', '')
-        else:
-            raw = str(response)
-        
-        print(f"LOG: Raw Ollama response: {raw[:200]}")
-        if raw:
-            answer = extract_answer_from_response(raw)
-            if answer:
-                return answer
-            else:
-                return raw.strip()
-        else:
-            return "I couldn't generate an answer right now."
-    except Exception as e:
-        print(f"LOG: Ollama error: {e}")
+        enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
+        return len(enc.encode(prompt))
+    except Exception:
+        return len(prompt.split())
+
+_preferred_server = {}
+MODEL_PARAMS = {
+    # Add model-specific params here if needed
+}
+
+def solve_captcha_with_ollama(client, model_name, extracted_text):
+    available_models = client.list_models()
+    print(f"LOG:Available models: {available_models}")
+    answer = None
+    last_error = None
+    print("LOG:Solving captcha with LLM")
+    for model_name in available_models:
+        params = MODEL_PARAMS.get(model_name, {})
+        servers = client.get_model_servers(model_name)
+        print(f"LOG:Trying model: {model_name} with servers: {servers}")
+        if not servers:
+            print(f"LOG:No servers found for model {model_name}, skipping.")
+            continue
+        preferred_url = _preferred_server.get(model_name)
+        if preferred_url:
+            servers.sort(key=lambda server: server.get('url') != preferred_url)
+        import random as _random
+        _random.shuffle(servers)
+        # Build prompt: instruct model to output ONLY the answer
+        full_prompt = (
+            "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
+            "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
+            f"Captcha: {extracted_text.strip()}"
+        )
+        token_count = count_tokens(full_prompt)
+        print(f"LOG:Prompt token estimate: {token_count}")
+        for server in servers:
+            url = server.get('url')
+            if not url:
+                continue
+            try:
+                from ollama import Client as OllamaClient
+                client_ollama = OllamaClient(host=url, timeout=15)
+                request = client.generate_api_request(model=model_name, prompt=full_prompt, **params)
+                request['stream'] = False
+                response = client_ollama.generate(**request)
+                text = getattr(response, 'response', None)
+                if not text and isinstance(response, dict):
+                    text = response.get('response')
+                if text:
+                    _preferred_server[model_name] = url
+                    answer = text.strip()
+                    print(f"LOG:Model {model_name} succeeded with server {url}")
+                    break
+                last_error = RuntimeError('Empty response body from upstream server')
+            except Exception as server_error:
+                last_error = server_error
+                print(f"LOG:Server {url} for model {model_name} failed: {server_error}")
+        if answer:
+            break
+    if not answer:
+        print(f"LOG:All models and servers failed. Last error: {last_error}")
         return "I couldn't generate an answer right now."
+    return extract_answer_from_response(answer)
 
 def solve_captcha_loop(page, client, model_name, username):
     """Handle captcha solving including potential reopen/reload of iframe."""
     max_attempts = 50
     attempt = 0
-    
+
+    try:
+        page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
+        time.sleep(1)
+    except Exception:
+        print("LOG:About button not found, continuing")
+
+    try:
+        page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
+        print("LOG: Clicked Accessibility Challenge button to enable accessibility mode (forced).")
+        time.sleep(1)
+    except Exception:
+        print("LOG: Accessibility Challenge button not found or not clickable after Menu button.")
+
+
     while attempt < max_attempts:
         attempt += 1
         print(f"LOG: Captcha solving attempt {attempt}")
 
         # Wait for iframe to be present and accessible
-        iframe_found = False
-        for _ in range(10):  # Try for up to 10 seconds
-            try:
-                page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=1000)
-                iframe_found = True
-                break
-            except Exception:
-                print("LOG: [solve_captcha_loop] Captcha iframe not found, waiting...")
-                # Attempt to click the submit registration button if present
-                try:
-                    submit_btn = page.get_by_role("button", name="Create Account")
-                    if submit_btn.is_visible():
-                        print("LOG: [solve_captcha_loop] Clicking Create Account button while waiting for captcha iframe...")
-                        human_move_and_click(page, submit_btn)
-                        human_delay(0.5, 1.0)
-                except Exception:
-                    pass
-                time.sleep(1)
-        if not iframe_found:
-            print("LOG: [solve_captcha_loop] Captcha iframe did not appear after waiting, retrying...")
-            continue
-
-        # Always try to enable accessibility mode after iframe appears
         try:
-            frame = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame
-            acc_btn = frame.get_by_text("Accessibility Challenge")
-            if acc_btn.is_visible():
-                acc_btn.click(timeout=3000)
-                print("LOG: Clicked Accessibility Challenge button to enable accessibility mode.")
-                time.sleep(1)
-            else:
-                print("LOG: Accessibility Challenge button not visible, maybe already in accessibility mode.")
+            page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=10000)
         except Exception:
-            print("LOG: Accessibility Challenge button not found or not clickable, maybe already on captcha or in accessibility mode.")
+            print("LOG: [solve_captcha_loop] Captcha iframe not found, skipping attempt.")
+            continue
 
         # Take screenshot and OCR
         captcha_filename = f"captcha_{username}_{attempt}.png"
@@ -203,38 +226,36 @@ def solve_captcha_loop(page, client, model_name, username):
                 next_btn = content_frame.locator('role=button')
                 if next_btn.count() > 0 and next_btn.first.is_visible():
                     human_move_and_click(page, next_btn.first)
+                    time.sleep(2)
                 else:
                     raise Exception('No button')
             except Exception:
                 submit_btn = content_frame.get_by_role("button", name="Submit")
                 human_move_and_click(page, submit_btn)
+                time.sleep(2)
 
             human_delay(1.0, 2.0)
 
-            # Check if iframe disappears (captcha solved or closed)
-            iframe_still_present = True
+            # Check if iframe disappears (captcha solved)
             try:
                 page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=5000)
-                print("LOG: Iframe still present, may need another round or iframe may have been reset")
+                print("LOG: Iframe still present, may need another round")
+                # Check if text-text element is still visible, if not, we need to press the accessibility button
+                try:
+                    page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.locator(".text-text").wait_for(state="visible", timeout=3000)
+                except Exception:
+                    print("LOG: Text element not visible, trying to click accessibility button again")
+                    try:
+                        page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
+                        time.sleep(1)
+                        page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_text("Accessibility Challenge").click()
+                        print("LOG: Clicked Accessibility Challenge button again.")
+                        time.sleep(1)
+                    except Exception:
+                        print("LOG: Accessibility Challenge button not found on second attempt.")
             except Exception:
-                print("LOG: Iframe disappeared - captcha solved or closed")
+                print("LOG: Iframe disappeared - captcha solved")
                 return True
-
-            # If iframe is still present, check if it was reset (closed and reopened)
-            # Wait for a short period to see if iframe disappears and reappears
-            for _ in range(5):
-                if not page.locator("iframe[title=\"hCaptcha challenge\"]").is_visible():
-                    print("LOG: Captcha iframe closed, waiting for it to reopen...")
-                    # Wait for iframe to reappear
-                    for _ in range(10):
-                        try:
-                            page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=1000)
-                            print("LOG: Captcha iframe reopened, continuing...")
-                            break
-                        except Exception:
-                            time.sleep(1)
-                    break
-                time.sleep(1)
 
         except Exception as e:
             print(f"LOG: Error during captcha interaction: {e}")
@@ -245,8 +266,7 @@ def solve_captcha_loop(page, client, model_name, username):
     return False
 
 def run(playwright: Playwright) -> None:
-    OLLAMA_HOST = "http://78.46.88.140:11434/"
-    client = OllamaClient(host=OLLAMA_HOST)
+    client = OllamaFreeAPI()
     logging.basicConfig(level=logging.INFO)
 
     print(f"LOG:Launching browser")
@@ -269,12 +289,45 @@ def run(playwright: Playwright) -> None:
             print(f"LOG:Using proxy with auth: {proxy_username}:****@{proxy_info}")
         else:
             print(f"LOG:Using proxy without auth: {proxy_info}")
-    browser = playwright.chromium.launch(headless=True, **launch_args)
+    browser = playwright.chromium.launch(headless=False, **launch_args)
     print("LOG:Creating browser context")
+    
+    # Randomize user agent and viewport
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    ]
+    user_agent = random.choice(user_agents)
+    viewport = {
+        "width": random.randint(1200, 1920),
+        "height": random.randint(700, 1080)
+    }
+    context_args = {
+        "user_agent": user_agent,
+        "viewport": viewport,
+        "locale": random.choice(["en-US", "en-GB", "en-CA"]),
+        "timezone_id": random.choice(["America/New_York", "Europe/Berlin", "Asia/Tokyo"]),
+    }
     if proxy_username and proxy_password:
-        context = browser.new_context(http_credentials={"username": proxy_username, "password": proxy_password})
-    else:
-        context = browser.new_context()
+        context_args["http_credentials"] = {"username": proxy_username, "password": proxy_password}
+    context = browser.new_context(**context_args)
+    print(f"LOG:Using user agent: {user_agent}")
+    print(f"LOG:Using viewport: {viewport}")
+    print(f"LOG:Using locale: {context_args['locale']}, timezone: {context_args['timezone_id']}")
+    
+    # Add extra stealth: random navigator properties
+    page = context.new_page()
+    Stealth().apply_stealth_sync(page)
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+        Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+        Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});
+        Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+        Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+    """)
+    
     name = "voidservices"
     username = f"voidserv_{random_string(5)}"
     password = random_string(10)
@@ -349,32 +402,34 @@ def run(playwright: Playwright) -> None:
     print("LOG:Waiting for hCaptcha to load")
     page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=15000)
     time.sleep(2)
-    try:
-        page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
-        time.sleep(1)
-    except Exception:
-        print("LOG:About button not found, continuing")
     
-    model_name = 'gemma2:2b'
+    model_name = 'deepseek-r1:latest'
     
-    # Solve captcha with retry on close/reopen
-    solved = solve_captcha_loop(page, client, model_name, username)
-    
-    if not solved:
-        print("LOG:Failed to solve captcha after multiple attempts")
-        context.close()
-        browser.close()
-        return
-    
-    # Final check for any remaining submit button
-    try:
-        submit_btn = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="Submit")
-        if submit_btn.is_visible():
-            print("LOG:Submit button still visible, clicking again")
-            human_move_and_click(page, submit_btn)
-            human_delay(1.0, 2.0)
-    except Exception:
-        pass
+    # Solve captcha, and if the iframe reappears after a solve, repeat the loop
+    while True:
+        solved = solve_captcha_loop(page, client, model_name, username)
+        if not solved:
+            print("LOG:Failed to solve captcha after multiple attempts")
+            context.close()
+            browser.close()
+            return
+        # Final check for any remaining submit button
+        try:
+            submit_btn = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="Submit")
+            if submit_btn.is_visible():
+                print("LOG:Submit button still visible, clicking again")
+                human_move_and_click(page, submit_btn)
+                human_delay(1.0, 2.0)
+        except Exception:
+            pass
+        # After solving, check if the captcha iframe comes back
+        try:
+            page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=7000)
+            print("LOG:Captcha iframe reappeared after solving, starting another captcha loop.")
+            continue
+        except Exception:
+            print("LOG:Captcha iframe did not reappear after solving.")
+            break
 
     print("LOG:Waiting for redirect")
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)
