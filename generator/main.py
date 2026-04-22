@@ -274,6 +274,16 @@ def run(playwright: Playwright) -> None:
         context.close()
         browser.close()
         return
+    
+    # Check if submit button is still visible, if so, try clicking again (sometimes captcha completes but button doesn't disappear)
+    try:
+        submit_btn = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="Submit")
+        if submit_btn.is_visible():
+            print("LOG:Submit button still visible, clicking again")
+            human_move_and_click(page, submit_btn)
+            human_delay(1.0, 2.0)
+    except Exception:
+        pass
 
     print("LOG:Waiting for redirect")
     # Save final screenshot
