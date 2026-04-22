@@ -292,9 +292,9 @@ def run(playwright: Playwright) -> None:
     if 'proxy' in launch_args:
         proxy_info = launch_args['proxy']['server']
         if proxy_username and proxy_password:
-            print(f"LOG:Using proxy with auth: {proxy_username}:****@{proxy_info}")
+            print(f"LOG:Using proxy with auth.")
         else:
-            print(f"LOG:Using proxy without auth: {proxy_info}")
+            print(f"LOG:Using proxy without auth.")
     browser = playwright.chromium.launch(headless=True, **launch_args)
     print("LOG:Creating browser context")
     
