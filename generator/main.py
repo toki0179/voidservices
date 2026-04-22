@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import random
 load_dotenv()
-from accounts_db import init_accounts_db, insert_account
+# from accounts_db import init_accounts_db, insert_account
 proxy = f"http://toki0179datacenter-{random.randint(1,100)}:bossandy12@p.webshare.io:80/"
 # proxy = None
 
@@ -126,10 +126,18 @@ def solve_captcha_with_ollama(client, model_name, extracted_text):
             print(f"LOG:No servers found for model {model}, skipping.")
             continue
         preferred_url = _preferred_server.get(model)
-        if preferred_url:
-            servers.sort(key=lambda server: server.get('url') != preferred_url)
+        # Prioritize servers in Germany/Europe
+        def is_eu_server(server):
+            url = server.get('url', '').lower()
+            # Add more region keywords as needed
+            return any(region in url for region in ['de', 'germany', 'frankfurt', 'eu', 'europe'])
+        # Sort: preferred_url first, then EU servers, then others
+        servers.sort(key=lambda server: (
+            preferred_url and server.get('url') != preferred_url,
+            not is_eu_server(server)
+        ))
         import random as _random
-        _random.shuffle(servers)
+        _random.shuffle(servers[1:])  # Shuffle only after the first (preferred/EU) server
         # Build prompt: instruct model to output ONLY the answer
         full_prompt = (
             "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text. "
@@ -442,7 +450,7 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Password: {password}")
 
 if __name__ == "__main__":
-    init_accounts_db()
+    # init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
