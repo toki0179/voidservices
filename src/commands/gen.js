@@ -92,7 +92,8 @@ function runPython(iteration, totalIterations, onLog) {
       const lines = text.split(/\r?\n/);
       for (const line of lines) {
         if (line.trim()) {
-          onLog(`[Iter ${iteration}/${totalIterations}] ${line}\n`, streamType);
+          const prefixedLine = `[Iter ${iteration}/${totalIterations}] ${line}\n`;
+          onLog(prefixedLine, streamType);
         } else {
           onLog('\n', streamType);
         }
@@ -187,7 +188,7 @@ export default {
     // Set up log embed
     const dmChannel = await client.users.createDM(userId);
     let currentIteration = 0;
-    let recentLogLines = []; // Stores last MAX_DISPLAY_LINES lines that contain "LOG:"
+    let recentLogLines = []; // Stores LOG lines, max 5 then reset
     let fullLogBuffer = '';
     let updateTimeout = null;
 
@@ -205,7 +206,7 @@ export default {
         
         await logMessage.edit({ embeds: [updatedEmbed] }).catch(console.error);
         updateTimeout = null;
-      }, 1000);
+      }, 500); // faster update for better responsiveness
     };
 
     const appendLog = (text) => {
@@ -213,12 +214,17 @@ export default {
       // Split into lines and process each line
       const lines = text.split(/\r?\n/);
       for (const line of lines) {
+        // Log to console for both DEBUG and LOG lines
+        if (line.includes('DEBUG:') || line.includes('LOG:')) {
+          console.log(line);
+        }
+        
         if (line.includes('LOG:')) {
-          // Add to recent logs, keep only last MAX_DISPLAY_LINES
-          recentLogLines.push(line);
-          if (recentLogLines.length > MAX_DISPLAY_LINES) {
-            recentLogLines = recentLogLines.slice(-MAX_DISPLAY_LINES);
+          // If we already have MAX_DISPLAY_LINES, clear all and then add this new one
+          if (recentLogLines.length >= MAX_DISPLAY_LINES) {
+            recentLogLines = []; // delete all existing lines
           }
+          recentLogLines.push(line);
           updateLogEmbed();
         }
       }
@@ -251,7 +257,8 @@ export default {
       };
 
       try {
-        appendLog(`🔄 Starting iteration ${currentIter}/${iterations}...\n`);
+        // Log start message (doesn't contain LOG:, so won't appear in embed but stored in full log)
+        fullLogBuffer += `🔄 Starting iteration ${currentIter}/${iterations}...\n`;
 
         let result;
         let attempt = 0;
@@ -259,7 +266,7 @@ export default {
         do {
           attempt++;
           if (attempt > 1) {
-            appendLog(`⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...\n`);
+            fullLogBuffer += `⚠️ Retrying iteration ${currentIter} (attempt ${attempt}) due to previous failure...\n`;
           }
           result = await runPython(currentIter, iterations, onLog);
         } while (result.code !== 0 && attempt < maxAttempts);
@@ -271,20 +278,20 @@ export default {
           totalSuccess++;
           if (result.generatedFiles.length) allGeneratedFiles.push(...result.generatedFiles);
           if (result.screenshotFiles.length) allScreenshotFiles.push(...result.screenshotFiles);
-          appendLog(`✅ Iteration ${currentIter}/${iterations} completed successfully.\n`);
+          fullLogBuffer += `✅ Iteration ${currentIter}/${iterations} completed successfully.\n`;
         } else {
           totalFailed++;
-          appendLog(`❌ Iteration ${currentIter}/${iterations} failed after ${attempt} attempts (exit code ${result.code}).\n`);
+          fullLogBuffer += `❌ Iteration ${currentIter}/${iterations} failed after ${attempt} attempts (exit code ${result.code}).\n`;
         }
       } catch (error) {
         totalFailed++;
-        appendLog(`💥 Iteration ${currentIter}/${iterations} crashed: ${error.message}\n`);
+        fullLogBuffer += `💥 Iteration ${currentIter}/${iterations} crashed: ${error.message}\n`;
       }
     }
 
     // Final update to embed
     const summary = `🏁 Generation finished.\n✅ Successful: ${totalSuccess}\n❌ Failed: ${totalFailed}`;
-    appendLog(`\n${summary}\n`);
+    fullLogBuffer += `\n${summary}\n`;
     if (updateTimeout) clearTimeout(updateTimeout);
     const finalDescription = recentLogLines.map(l => `\`${l.replace(/`/g, '\\`')}\``).join('\n') || 'No LOG lines.';
     const finalEmbed = new EmbedBuilder()

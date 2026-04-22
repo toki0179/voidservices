@@ -277,8 +277,10 @@ def run(playwright: Playwright) -> None:
 
     print(f"LOG:Launching browser")
     proxyNum = random.randint(1,100)
+    proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
     launch_args = {}
     proxy_url = proxy
+    print(f"DEBUG:Using proxy URL: {proxy_url}")
     proxy_username = None
     proxy_password = None
     if proxy_url and '@' in proxy_url:
