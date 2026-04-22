@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import random
 load_dotenv()
-# from accounts_db import init_accounts_db, insert_account
+from accounts_db import init_accounts_db, insert_account
 proxy = f"http://toki0179datacenter-{random.randint(1,100)}:bossandy12@p.webshare.io:80/"
 # proxy = None
 
@@ -450,7 +450,7 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Password: {password}")
 
 if __name__ == "__main__":
-    # init_accounts_db()
+    init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
