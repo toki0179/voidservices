@@ -1,11 +1,11 @@
 from dotenv import load_dotenv
 import random
 load_dotenv()
-# from accounts_db import init_accounts_db, insert_account
+from accounts_db import init_accounts_db, insert_account
 proxyNum = None
 proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
-model_name = 'deepseek-r1:1.5b'
-# proxy = None
+model_name = 'gemma3:1b'
+proxy = None
 import os
 import time
 import string
@@ -23,6 +23,26 @@ import http.client
 # Ensure generator directory exists
 GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
 os.makedirs(GENERATOR_DIR, exist_ok=True)
+
+# --- Training data directory and storage ---
+TRAINING_DATA_DIR = os.path.join(os.getcwd(), 'training_data')
+os.makedirs(TRAINING_DATA_DIR, exist_ok=True)
+
+def store_training_batch(samples, model_name, username):
+    """Append multiple (instruction, answer) pairs to a JSONL file."""
+    filepath = os.path.join(TRAINING_DATA_DIR, 'captcha_samples.jsonl')
+    timestamp = time.time()
+    with open(filepath, 'a', encoding='utf-8') as f:
+        for instruction, answer in samples:
+            record = {
+                "timestamp": timestamp,
+                "model_name": model_name,
+                "instruction": instruction,
+                "answer": answer,
+                "success": True
+            }
+            f.write(json.dumps(record) + '\n')
+# ------------------------------------------
 
 def random_string(length: int) -> str:
     letters = string.ascii_lowercase
@@ -104,8 +124,9 @@ def count_tokens(prompt):
 
 def solve_captcha_with_ollama(model_name, extracted_text):
     MODEL_PARAMS = {
-        'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
-        'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9, 'num_predict': 64},
+        'llama3.2:3b': {'temperature': 0, 'top_p': 1, 'num_predict': 32},
+        'qwen2.5:3b': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
+        # 'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9, 'num_predict': 64},
         'deepseek-r1:1.5b': {'temperature': 0.3, 'top_p': 0.9, 'num_predict': 32},
         'gpt-oss:20b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
         'mistral:latest': {'temperature': 0.7, 'top_p': 0.95, 'num_predict': 64},
@@ -114,18 +135,24 @@ def solve_captcha_with_ollama(model_name, extracted_text):
         'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
     }
     params = MODEL_PARAMS.get(model_name, {})
-    prompt = (
-        "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text.\n"
-        "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
-        f"Captcha: {extracted_text.strip()}"
-    )
+    prompt = f"""System: You solve text transformation puzzles. Given an instruction, output only the transformed word or number. No explanations. No extra text.
+    Examples:
+    Instruction: "Change the first 'a' to 'b' in banana"
+    Output: bbnaana
+
+    Instruction: "Replace the last '1' with '2' in 621761"
+    Output: 621762
+
+    Now solve:
+    Instruction: {extracted_text}
+    """
     payload = {
         "model": model_name,
         "prompt": prompt,
         **params
     }
     try:
-        conn = http.client.HTTPConnection("78.46.88.140", 11434, timeout=30)
+        conn = http.client.HTTPConnection("78.46.88.140", 11434, timeout=60)
         headers = {"Content-Type": "application/json"}
         conn.request("POST", "/api/generate", body=json.dumps(payload), headers=headers)
         resp = conn.getresponse()
@@ -156,11 +183,12 @@ def solve_captcha_with_ollama(model_name, extracted_text):
         return "I couldn't solve the captcha."
 
 def solve_captcha_loop(page, model_name, username):
-    """Handle captcha solving including potential reopen/reload of iframe."""
-    max_attempts = 10
+    """Handle captcha solving. Returns (success, list_of_pairs)."""
+    max_attempts = 50
     attempt = 0
     fail_count = 0
     max_fail_count = 3
+    all_pairs = []   # store (instruction, answer) from each complete round
 
     try:
         page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
@@ -213,10 +241,13 @@ def solve_captcha_loop(page, model_name, username):
             print(f"LOG: Ollama failed to solve captcha (fail count {fail_count})")
             if fail_count >= max_fail_count:
                 print("LOG: Too many consecutive Ollama failures, aborting captcha solve loop.")
-                return False
+                return False, []
             time.sleep(2)
         else:
             fail_count = 0
+            # Only store pairs that were successfully answered (not failure)
+            all_pairs.append((extracted_text.strip(), answer))
+
         print(f"LOG: Answer: {answer}")
 
         # Fill and submit
@@ -259,7 +290,9 @@ def solve_captcha_loop(page, model_name, username):
                         print("DEBUG: Accessibility Challenge button not found on second attempt.")
             except Exception:
                 print("LOG:Captcha solved!")
-                return True
+                # Store the entire batch of pairs from this solving session
+                store_training_batch(all_pairs, model_name, username)
+                return True, all_pairs
 
         except Exception as e:
             print(f"DEBUG: Error during captcha interaction: {e}")
@@ -267,7 +300,7 @@ def solve_captcha_loop(page, model_name, username):
             continue
 
     print("LOG: Max attempts reached, captcha not solved")
-    return False
+    return False, []
 
 def run(playwright: Playwright) -> None:
     logging.basicConfig(level=logging.INFO)
@@ -411,7 +444,7 @@ def run(playwright: Playwright) -> None:
     
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
     while True:
-        solved = solve_captcha_loop(page, model_name, username)
+        solved, pairs = solve_captcha_loop(page, model_name, username)
         if not solved:
             print("LOG:Failed to solve captcha after multiple attempts")
             context.close()
@@ -441,10 +474,10 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
     # Save account to database
-    # insert_account(email, password, username)
+    insert_account(email, password, username)
 
 if __name__ == "__main__":
-    # init_accounts_db()
+    init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)
