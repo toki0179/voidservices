@@ -4,7 +4,7 @@ load_dotenv()
 from accounts_db import init_accounts_db, insert_account
 proxyNum = None
 proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
-model_name = 'gemma3:1b'
+model_name = 'gemma3:4b'
 proxy = None
 import os
 import time
