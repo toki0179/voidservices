@@ -1,12 +1,11 @@
 from dotenv import load_dotenv
 import random
 load_dotenv()
-from accounts_db import init_accounts_db, insert_account
+# from accounts_db import init_accounts_db, insert_account
 proxyNum = None
 proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
-model_name = 'phi3.5:latest'
+model_name = 'deepseek-r1:1.5b'
 # proxy = None
-from ollama import Client as OllamaClient
 import os
 import time
 import string
@@ -17,6 +16,9 @@ from playwright_stealth import Stealth
 from PIL import Image
 import pytesseract
 import tiktoken
+import requests
+import json
+import http.client
 
 # Ensure generator directory exists
 GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
@@ -104,6 +106,7 @@ def solve_captcha_with_ollama(model_name, extracted_text):
     MODEL_PARAMS = {
         'llama3.2:3b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
         'deepseek-r1:latest': {'temperature': 0.6, 'top_p': 0.9, 'num_predict': 64},
+        'deepseek-r1:1.5b': {'temperature': 0.3, 'top_p': 0.9, 'num_predict': 32},
         'gpt-oss:20b': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
         'mistral:latest': {'temperature': 0.7, 'top_p': 0.95, 'num_predict': 64},
         'mistral-nemo:custom': {'temperature': 0.7, 'top_p': 0.9, 'num_predict': 64},
@@ -111,28 +114,53 @@ def solve_captcha_with_ollama(model_name, extracted_text):
         'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
     }
     params = MODEL_PARAMS.get(model_name, {})
-    client = OllamaClient(host="http://78.46.88.140:11434/")
-    """Use local Ollama instance to solve captcha."""
     prompt = (
         "You are solving a captcha. Output ONLY the answer, with no explanation, no punctuation, and no extra text.\n"
         "If the answer is a number, output only the number. If it is a word, output only the word. Do not say anything else.\n"
         f"Captcha: {extracted_text.strip()}"
     )
+    payload = {
+        "model": model_name,
+        "prompt": prompt,
+        **params
+    }
     try:
-        response = client.generate(model=model_name, prompt=prompt, **params)
-        answer = response.get('response', '').strip() if isinstance(response, dict) else getattr(response, 'response', '').strip()
+        conn = http.client.HTTPConnection("78.46.88.140", 11434, timeout=30)
+        headers = {"Content-Type": "application/json"}
+        conn.request("POST", "/api/generate", body=json.dumps(payload), headers=headers)
+        resp = conn.getresponse()
+        data = resp.read().decode()
+        status = resp.status
+        conn.close()
+        lines = [line for line in data.splitlines() if line.strip()]
+        if not lines:
+            print(f"DEBUG: Ollama empty response, status {status}, raw: {data}")
+            return "I couldn't solve the captcha."
+        # Collect all streamed responses
+        responses = []
+        for line in lines:
+            try:
+                obj = json.loads(line)
+                if 'response' in obj:
+                    responses.append(obj['response'])
+            except Exception as e:
+                print(f"DEBUG: Ollama JSON decode error: {e} for line: {line}")
+        answer = ''.join(responses).strip()
         if answer:
             return extract_answer_from_response(answer)
         else:
+            print(f"DEBUG: Ollama no answer, status {status}, raw: {data}")
             return "I couldn't solve the captcha."
     except Exception as e:
-        print(f"DEBUG: Ollama error: {e}")
+        print(f"DEBUG: Ollama HTTP error: {e}")
         return "I couldn't solve the captcha."
 
 def solve_captcha_loop(page, model_name, username):
     """Handle captcha solving including potential reopen/reload of iframe."""
     max_attempts = 10
     attempt = 0
+    fail_count = 0
+    max_fail_count = 3
 
     try:
         page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="About hCaptcha &").click()
@@ -149,9 +177,9 @@ def solve_captcha_loop(page, model_name, username):
     while attempt < max_attempts:
         attempt += 1
         if attempt == 1:
-            print(f"LOG:Solving captcha...")
-
+            print(f"DEBUG:Solving captcha...")
         # Wait for iframe to be present and accessible
+        print(f"LOG: Solving captcha, attempt {attempt}/{max_attempts}")
         try:
             page.wait_for_selector("iframe[title=\"hCaptcha challenge\"]", timeout=10000)
         except Exception:
@@ -180,8 +208,16 @@ def solve_captcha_loop(page, model_name, username):
             print(f"DEBUG: OCR extracted text: {extracted_text.strip()}")
 
         answer = solve_captcha_with_ollama(model_name, extracted_text.strip())
-        if attempt == 1:
-            print(f"LOG: Answer: {answer}")
+        if answer == "I couldn't solve the captcha.":
+            fail_count += 1
+            print(f"LOG: Ollama failed to solve captcha (fail count {fail_count})")
+            if fail_count >= max_fail_count:
+                print("LOG: Too many consecutive Ollama failures, aborting captcha solve loop.")
+                return False
+            time.sleep(2)
+        else:
+            fail_count = 0
+        print(f"LOG: Answer: {answer}")
 
         # Fill and submit
         try:
@@ -405,10 +441,10 @@ def run(playwright: Playwright) -> None:
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
     # Save account to database
-    insert_account(email, password, username)
+    # insert_account(email, password, username)
 
 if __name__ == "__main__":
-    init_accounts_db()
+    # init_accounts_db()
     try:
         with Stealth().use_sync(sync_playwright()) as playwright:
             run(playwright)

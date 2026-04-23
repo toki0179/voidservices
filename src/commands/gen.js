@@ -354,12 +354,6 @@ export default {
       }
     }
 
-    if (attachments.length) {
-      await sendLogDm(userId, client, `📎 Attachments from all runs: ${attachmentNames.join(', ')}`, attachments);
-    } else {
-      await sendLogDm(userId, client, `⚠️ No files were generated in any successful run.`);
-    }
-
     // Fetch accounts from Postgres and send as CSV attachment
     try {
       const today = new Date().toISOString().slice(0, 10);
