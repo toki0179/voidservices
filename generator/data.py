@@ -16,7 +16,7 @@ from playwright.sync_api import sync_playwright
 from PIL import Image
 import pytesseract
 
-MODEL_NAME = 'gemma3:4b'
+MODEL_NAME = 'qwen3:14b'
 HEADLESS = True
 DEMO_URL = "https://accounts.hcaptcha.com/demo?sitekey=4c672d35-0701-42b2-88c3-78380b0db560"
 
@@ -88,7 +88,7 @@ Instruction: {instruction}
     }
     for attempt in range(retries + 1):
         try:
-            conn = http.client.HTTPConnection("localhost", 11434, timeout=15)
+            conn = http.client.HTTPConnection("localhost", 11434, timeout=60)
             conn.request("POST", "/api/generate", body=json.dumps(payload), headers={"Content-Type": "application/json"})
             resp = conn.getresponse()
             data = resp.read().decode()
@@ -192,7 +192,7 @@ def solve_one_session(page, session_id):
 
 # ----------------------------------------------------------------------
 def run():
-    print("Fast hCaptcha Trainer (deepseek-r1:7b) – stable, no aggressive reloads\n")
+    print(f"Fast hCaptcha Trainer ({MODEL_NAME}) – stable, no aggressive reloads\n")
     total = 0
     session = 0
     with sync_playwright() as p:
