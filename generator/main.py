@@ -381,6 +381,8 @@ def run(playwright: Playwright) -> None:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
     ]
     user_agent = random.choice(user_agents)
+    locale = random.choice(["en-US", "en-GB", "en-CA"])
+    timezone = random.choice(["America/New_York", "Europe/Berlin", "Asia/Tokyo"])
     viewport = {
         "width": random.randint(1200, 1920),
         "height": random.randint(700, 1080)
@@ -388,8 +390,8 @@ def run(playwright: Playwright) -> None:
     context_args = {
         "user_agent": user_agent,
         "viewport": viewport,
-        "locale": random.choice(["en-US", "en-GB", "en-CA"]),
-        "timezone_id": random.choice(["America/New_York", "Europe/Berlin", "Asia/Tokyo"]),
+        "locale": locale,
+        "timezone_id": timezone,
     }
     if proxy_username and proxy_password:
         context_args["http_credentials"] = {"username": proxy_username, "password": proxy_password}
@@ -608,7 +610,28 @@ def run(playwright: Playwright) -> None:
                         if token:
                             headers = {
                                 "Authorization": token,
+                                "Host": "discord.com",
+                                "User-Agent": user_agent,
+                                "Accept": "*/*",
+                                "Accept-Language": "en-US;q=0.7,en;q=0.3",
+                                "Accept-Encoding": "gzip, deflate, br, zstd",
                                 "Content-Type": "application/json",
+                                "X-Context-Properties": "eyJsb2NhdGlvbiI6IkpvaW4gR3VpbGQiLCJsb2NhdGlvbl9ndWlsZF9pZCI6IjQ1MjIzNzIyMTg0MDU1MTkzOCIsImxvY2F0aW9uX2NoYW5uZWxfaWQiOiI1Mjg2MTk0NjQzMjYxMTk0MzUiLCJsb2NhdGlvbl9jaGFubmVsX3R5cGUiOjB9",
+                                "X-Super-Properties": "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiRmlyZWZveCIsImRldmljZSI6IiIsInN5c3RlbV9sb2NhbGUiOiJkZSIsImJyb3dzZXJfdXNlcl9hZ2VudCI6Ik1vemlsbGEvNS4wIChXaW5kb3dzIE5UIDEwLjA7IFdpbjY0OyB4NjQ7IHJ2OjEyOC4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzEyOC4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTI4LjAiLCJvc192ZXJzaW9uIjoiMTAiLCJyZWZlcnJlciI6IiIsInJlZmVycmluZ19kb21haW4iOiIiLCJyZWZlcnJlcl9jdXJyZW50IjoiIiwicmVmZXJyaW5nX2RvbWFpbl9jdXJyZW50IjoiIiwicmVsZWFzZV9jaGFubmVsIjoic3RhYmxlIiwiY2xpZW50X2J1aWxkX251bWJlciI6MzE2Mjg2LCJjbGllbnRfZXZlbnRfc291cmNlIjpudWxsfQ==",
+                                "X-Discord-Locale": locale,
+                                "X-Discord-Timezone": timezone,
+                                "X-Debug-Options": "bugReporterEnabled",
+                                "Origin": "https://discord.com",
+                                "DNT": "1",
+                                "Sec-GPC": "1",
+                                "Alt-Used": "discord.com",
+                                "Connection": "keep-alive",
+                                "Referer": "https://discord.com/channels/1252672506045927576/1252674984481001502",
+                                "Cookie": "__dcfduid=b11b24e03ac111ef97785554735fed49; __sdcfduid=b11b24e13ac111ef97785554735fed49af061d82e48d3438f006b11c1db0337e471006dbd32f7166916a2e1c41b1a8fa; OptanonConsent=isIABGlobal=false&datestamp=Fri+Jul+05+2024+13%3A28%3A26+GMT%2B0200+(Mitteleurop%C3%A4ische+Sommerzeit)&version=6.33.0&hosts=&landingPath=https%3A%2F%2Fdiscord.com%2F&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1; cf_clearance=ebTkEtOylDJnM4chTJnN.Lap.v793pJbxjRhJc3GX7k-1722861274-1.0.1.1-I39TfUOX.vwQFn6nnQr2qgAjrSThQwa412nOqlMDDHMYZYLpKuwCZ44ZlJld3uVKOCq0I.jB5Q6YYQBSExH_sw; __cfruid=93a90b99370bc5a3a0c65a0ad9e647dccc153e65-1722238620; _cfuvid=BwFxc55PCq1L_G8YGEQhvtFtN9MpqifkBWbABGn.RWg-1722843693883-0.0.1.1-604800000; locale=de",
+                                "Sec-Fetch-Dest": "empty",
+                                "Sec-Fetch-Mode": "cors",
+                                "Sec-Fetch-Site": "same-origin",
+                                "TE": "trailers",
                                 "User-Agent": user_agent
                             }
                             join_url = "https://discord.com/api/v9/invites/3ECu2YcDUH"
