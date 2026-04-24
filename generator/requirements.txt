@@ -13,3 +13,4 @@ pillow
 pytesseract
 ollama
 tiktoken
+imap_tools

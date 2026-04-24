@@ -22,6 +22,7 @@ def init_accounts_db():
             email TEXT NOT NULL,
             password TEXT NOT NULL,
             username TEXT NOT NULL,
+            token TEXT,
             created_at DATE NOT NULL
         )
     ''')
@@ -32,10 +33,28 @@ def init_accounts_db():
 def insert_account(email, password, username):
     conn = get_db_conn()
     c = conn.cursor()
+    def _insert(email, password, username, token=None):
+        c.execute('''
+            INSERT INTO accounts (email, password, username, token, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (email, password, username, token, datetime.utcnow().strftime('%Y-%m-%d')))
+    # Backward compatible: if called with 3 args, token is None
+    import inspect
+    if len(inspect.getargvalues(inspect.currentframe()).locals) == 4:
+        _insert(email, password, username)
+    else:
+        _insert(email, password, username, None)
+
+def insert_account_with_token(email, password, username, token):
+    conn = get_db_conn()
+    c = conn.cursor()
     c.execute('''
-        INSERT INTO accounts (email, password, username, created_at)
-        VALUES (%s, %s, %s, %s)
-    ''', (email, password, username, datetime.utcnow().strftime('%Y-%m-%d')))
+        INSERT INTO accounts (email, password, username, token, created_at)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (email, password, username, token, datetime.utcnow().strftime('%Y-%m-%d')))
+    conn.commit()
+    c.close()
+    conn.close()
     conn.commit()
     c.close()
     conn.close()

@@ -1,10 +1,49 @@
+import random
+def get_few_shot_examples(n=10):
+    samples = []
+    try:
+        with open(os.path.join(TRAINING_DATA_DIR, 'captcha_samples.jsonl'), 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    if obj.get('instruction') and obj.get('answer'):
+                        samples.append((obj['instruction'], obj['answer']))
+                except Exception:
+                    continue
+        if len(samples) > n:
+            return random.sample(samples, n)
+        return samples
+    except Exception as e:
+        print(f"WARN: Could not load few-shot examples: {e}")
+        return []
+COMMON_TWO_LETTER_WORDS = {'in', 'to', 'of', 'on', 'at', 'by', 'up', 'do', 'go', 'so', 'be', 'he', 'we', 'it', 'is', 'as', 'or', 'an', 'us', 'my', 'no', 'me', 'hi', 'ok', 'if'}
+COMMON_THREE_LETTER_WORDS = {
+    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'has', 'had', 'her', 'his', 'was', 'all', 'any', 'can', 'may', 'see', 'use', 'get', 'its', 'now', 'how', 'why', 'yes', 'off', 'out', 'own', 'two', 'too', 'one', 'red', 'big', 'new', 'old', 'put', 'set', 'let', 'run', 'sit', 'pay', 'win', 'bin', 'din', 'fin', 'gin', 'pin', 'sin', 'tin', 'son', 'ton', 'don', 'con', 'bon', 'non', 'ion'
+}
+
+def fix_ocr_text(text: str) -> str:
+    if not text:
+        return text
+    text = re.sub(r'\b(to)([a-z])(in)\b', r'\1 \2 \3', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(to+)(in|on|of)\b', r'\1 \2', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b([a-z])(to|of|in|on)\b', r'\1 \2', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d+)(in|to|of|on|at|by|up)\b', r'\1 \2', text, flags=re.IGNORECASE)
+    text = text.lower().strip()
+    tokens = text.split()
+    corrected = []
+    for token in tokens:
+        if len(token) == 3 and token not in COMMON_THREE_LETTER_WORDS:
+            first, rest = token[0], token[1:]
+            if rest in COMMON_TWO_LETTER_WORDS:
+                corrected.extend([first, rest])
+                continue
+        corrected.append(token)
+    return ' '.join(corrected)
 from dotenv import load_dotenv
 import random
 load_dotenv()
-from accounts_db import init_accounts_db, insert_account
-proxyNum = None
-proxy = f"http://toki0179datacenter-{proxyNum}:bossandy12@p.webshare.io:80/"
-model_name = 'gemma3:4b'
+from accounts_db import init_accounts_db, insert_account, insert_account_with_token
+model_name = 'gemma3:12b'
 proxy = None
 import os
 import time
@@ -19,6 +58,9 @@ import tiktoken
 import requests
 import json
 import http.client
+
+# For email verification
+from imap_tools import MailBox, AND
 
 # Ensure generator directory exists
 GENERATOR_DIR = os.path.join(os.getcwd(), 'generator')
@@ -135,24 +177,22 @@ def solve_captcha_with_ollama(model_name, extracted_text):
         'smollm2:135m': {'temperature': 0.8, 'top_p': 0.9, 'num_predict': 48},
     }
     params = MODEL_PARAMS.get(model_name, {})
-    prompt = f"""System: You solve text transformation puzzles. Given an instruction, output only the transformed word or number. No explanations. No extra text.
-    Examples:
-    Instruction: "Change the first 'a' to 'b' in banana"
-    Output: bbnaana
-
-    Instruction: "Replace the last '1' with '2' in 621761"
-    Output: 621762
-
-    Now solve:
-    Instruction: {extracted_text}
-    """
+    # Add few-shot examples from training data
+    few_shot = get_few_shot_examples(10)
+    examples_str = ""
+    for instr, ans in few_shot:
+        examples_str += f"Instruction: {instr}\nOutput: {ans}\n\n"
+    if examples_str:
+        prompt = f"System: You solve text transformation puzzles. Given an instruction, output only the transformed word or number. You are extremely precise and accurate. No explanations.Make sure not to add extra text, if asked to replace a character, replace only the character(s) asked. No extra text. Sometimes no changes need to be made so read question carefully.\n\nNow solve:\nInstruction: {extracted_text}\n"
+    else:
+        prompt = f"System: You solve text transformation puzzles. Given an instruction, output only the transformed word or number. You are extremely precise and accurate. No explanations.Make sure not to add extra text, if asked to replace a character, replace only the character(s) asked. No extra text. Sometimes no changes need to be made so read question carefully.\n\nInstruction: {extracted_text}\n"
     payload = {
         "model": model_name,
         "prompt": prompt,
         **params
     }
     try:
-        conn = http.client.HTTPConnection("78.46.88.140", 11434, timeout=60)
+        conn = http.client.HTTPConnection("127.0.0.1", 11434, timeout=60)
         headers = {"Content-Type": "application/json"}
         conn.request("POST", "/api/generate", body=json.dumps(payload), headers=headers)
         resp = conn.getresponse()
@@ -232,10 +272,12 @@ def solve_captcha_loop(page, model_name, username):
         os.remove(captcha_path)
 
         extracted_text = pytesseract.image_to_string(Image.open(compressed_path))
+        fixed_text = fix_ocr_text(extracted_text.strip())
         if attempt == 1:
             print(f"DEBUG: OCR extracted text: {extracted_text.strip()}")
+            print(f"DEBUG: Fixed OCR text: {fixed_text}")
 
-        answer = solve_captcha_with_ollama(model_name, extracted_text.strip())
+        answer = solve_captcha_with_ollama(model_name, fixed_text)
         if answer == "I couldn't solve the captcha.":
             fail_count += 1
             print(f"LOG: Ollama failed to solve captcha (fail count {fail_count})")
@@ -328,7 +370,7 @@ def run(playwright: Playwright) -> None:
             print(f"DEBUG:Using proxy with auth.")
         else:
             print(f"DEBUG:Using proxy without auth.")
-    browser = playwright.chromium.launch(headless=True, **launch_args)
+    browser = playwright.chromium.launch(headless=False, **launch_args)
     print("DEBUG:Creating browser context")
     
     # Randomize user agent and viewport
@@ -444,10 +486,18 @@ def run(playwright: Playwright) -> None:
     
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
     last_successful_pairs = []
+
     while True:
         solved, pairs = solve_captcha_loop(page, model_name, username)
         if not solved:
             print("LOG:Failed to solve captcha after multiple attempts")
+            # Clean up captcha images before returning
+            for fname in os.listdir(GENERATOR_DIR):
+                if fname.startswith("captcha_") and (fname.endswith(".png") or fname.endswith("_compressed.jpg")):
+                    try:
+                        os.remove(os.path.join(GENERATOR_DIR, fname))
+                    except Exception as e:
+                        print(f"WARN: Could not delete {fname}: {e}")
             context.close()
             browser.close()
             return
@@ -472,17 +522,122 @@ def run(playwright: Playwright) -> None:
             print("DEBUG:Captcha iframe did not reappear after solving.")
             break
 
+    # Clean up captcha images after captcha loop (success)
+    for fname in os.listdir(GENERATOR_DIR):
+        if fname.startswith("captcha_") and (fname.endswith(".png") or fname.endswith("_compressed.jpg")):
+            try:
+                os.remove(os.path.join(GENERATOR_DIR, fname))
+            except Exception as e:
+                print(f"WARN: Could not delete {fname}: {e}")
+
     print("LOG:Waiting for redirect")
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)
+    time.sleep(5)
+    # Get the token from local storage window.webpackChunkdiscord_app.push([[Symbol()],{},o=>{for(let e of Object.values(o.c))try{if(!e.exports||e.exports===window)continue;e.exports?.getToken&&(token=e.exports.getToken());for(let o in e.exports)e.exports?.[o]?.getToken&&"IntlMessagesProxy"!==e.exports[o][Symbol.toStringTag]&&(token=e.exports[o].getToken())}catch{}}]),window.webpackChunkdiscord_app.pop(),token;
+    JS_SNIPPET = """
+    let token;
+        window.webpackChunkdiscord_app.push([[Symbol()],{},o=>{
+            for(let e of Object.values(o.c)) try {
+                if(!e.exports||e.exports===window) continue;
+                e.exports?.getToken&&(token=e.exports.getToken());
+                for(let o in e.exports) e.exports?.[o]?.getToken&&"IntlMessagesProxy"!==e.exports[o][Symbol.toStringTag]&&(token=e.exports[o].getToken())
+            } catch {}
+        }]);
+        window.webpackChunkdiscord_app.pop();
+        token;
+    """
+    token = page.evaluate(JS_SNIPPET)
+
+    # Save account to database with token
+    # try:
+    #     from accounts_db import insert_account_with_token
+    #     insert_account_with_token(email, password, username, token)
+    #     print("LOG:Account with token saved to database.")
+    # except Exception as e:
+    #     print(f"WARN: Could not save account with token: {e}")
+
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
+    print(f"LOG:Email: {email}")
+    print(f"LOG:Token: {token}")
+
+
+    # Email verification logic using mail.shady.gg and shady@shady.gg
+    print("LOG:Checking for verification email...")
+    verification_found = False
+    try:
+        with MailBox('mail.shady.gg').login('shady@shady.gg', '73,GaTeNt,{', 'INBOX') as mailbox:
+            # Search for unread emails sent to the generated email
+            for msg in mailbox.fetch(AND(to=email, seen=False)):
+                print(f"Subject: {msg.subject}")
+                print(f"Body: {msg.text}")
+                # Add your verification logic here (e.g., extract link/code and visit it)
+                # Find the verification link in the email body needs to include https://click.discord.com/ls/*
+                verification_link = None
+                for line in msg.text.splitlines():
+                    if "https://click.discord.com/ls/" in line:
+                        verification_link = line.strip()
+                        # Make sure to remove "Verify Email: " prefix if present
+                        verification_link = re.sub(r'(?i)^verify email:\s*', '', verification_link)
+                        break
+                if verification_link:
+                    print(f"LOG:Found verification link: {verification_link}")
+                    # Visit the link in the same browser context to complete verification
+                    verification_page = context.new_page()
+                    Stealth().apply_stealth_sync(verification_page)
+                    verification_page.goto(verification_link)
+                    # If text on the page says "Email Verified" or similar, we can consider it successful
+                    try:
+                        verification_page.wait_for_selector("text=/.*email verified.*/i", timeout=15000)
+                        print("LOG:Email verification confirmed on page.")
+                        # Click the continue button if it exists
+                        try:
+                            continue_btn = verification_page.get_by_role("button", name="Continue")
+                            if continue_btn.is_visible():
+                                human_move_and_click(verification_page, continue_btn)
+                                human_delay(1.0, 2.0)
+                        except Exception:
+                            pass
+                    except Exception:
+                        print("LOG:Email verification failed.")
+
+                    print("LOG:Email verification completed successfully!")
+                    # Now join server using invite link post request https://discord.com/api/v9/invites/3ECu2YcDUH
+                    try:
+                        if token:
+                            headers = {
+                                "Authorization": token,
+                                "Content-Type": "application/json",
+                                "User-Agent": user_agent
+                            }
+                            join_url = "https://discord.com/api/v9/invites/3ECu2YcDUH"
+                            import requests
+                            response = requests.post(join_url, headers=headers, json={})
+                            if response.status_code == 200:
+                                print("LOG:Successfully joined server after verification.")
+                            else:
+                                print(f"LOG:Failed to join server, status: {response.status_code}, response: {response.text}")
+                        else:
+                            print("WARN: No token available to join server.")
+                    except Exception as ex:
+                        print(f"LOG:Failed to join server after verification: {ex}")
+                verification_found = True
+                break
+        if not verification_found:
+            print(f"LOG:No verification email found for {email}.")
+        else:
+            print(f"LOG:Verification email processed for {email}.")
+    except Exception as e:
+        print(f"ERROR: Email verification failed: {e}")
+
+
     # Save last 3 captcha samples only after successful login redirect
     if last_successful_pairs:
         print(f"LOG:Storing last {len(last_successful_pairs)} captcha samples after successful login redirect.")
         store_training_batch(last_successful_pairs, model_name, username)
     # Save account to database
-    insert_account(email, password, username)
+    insert_account_with_token(email, password, username, token)
 
 if __name__ == "__main__":
     init_accounts_db()

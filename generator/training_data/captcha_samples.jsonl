@@ -1,42 +1,129 @@
-{"timestamp": 1776952409.940691, "model_name": "gemma3:12b", "instruction": "when the final character is 2, change only that last character to 7 in 160782.", "answer": "160787", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776952409.940691, "model_name": "gemma3:12b", "instruction": "replace the last character with 4 only when the ending character is 5 in 208755.", "answer": "208745", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776952409.940691, "model_name": "gemma3:12b", "instruction": "if it ends with 3, replace that final 3 with 2 in 638263.", "answer": "638262", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953347.918422, "model_name": "qwen3:14b", "instruction": "when the final character is 6, change only that last character to 3 in 379615.", "answer": "379615", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953347.918422, "model_name": "qwen3:14b", "instruction": "when the final character is 8, change only that last character to 7 in 490818.", "answer": "490817", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953347.918422, "model_name": "qwen3:14b", "instruction": "if it ends with 8, replace that final 8 with 6 in 464125.", "answer": "464125", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953458.6614022, "model_name": "qwen3:14b", "instruction": "replace the last character with 9 only when the ending character is 7 in 968677.", "answer": "968679", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953458.6614022, "model_name": "qwen3:14b", "instruction": "when the final character is 6, change only that last character to 0 in 774256.", "answer": "774250", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953458.6614022, "model_name": "qwen3:14b", "instruction": "when the final character is 0, change only that last character to 6 in 397080.", "answer": "397086", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953663.550848, "model_name": "qwen3:14b", "instruction": "when the final character is 9, change only that last character to 5 in 968560.", "answer": "968560", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953663.550848, "model_name": "qwen3:14b", "instruction": "change just the first occurrence of 9 to 8 in 393374.", "answer": "383374", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953663.550848, "model_name": "qwen3:14b", "instruction": "replace the last character with 1 only when the ending character is 7 in 208907.", "answer": "208901", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953785.419659, "model_name": "qwen3:14b", "instruction": "when the final character is 0, change only that last character to 3 in 552309.", "answer": "552309", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953785.419659, "model_name": "qwen3:14b", "instruction": "if it ends with 6, replace that final 6 with 5 in 103856.", "answer": "103855", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953785.419659, "model_name": "qwen3:14b", "instruction": "if it ends with 5, replace that final 5 with 4 in 560567.", "answer": "560567", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953963.740981, "model_name": "qwen3:14b", "instruction": "when the final character is 6, change only that last character to 8 in 430798.", "answer": "430798", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953963.740981, "model_name": "qwen3:14b", "instruction": "only if the ending is 5, replace the last character with 6 in 406566.", "answer": "406566", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776953963.740981, "model_name": "qwen3:14b", "instruction": "when the final character is 6, change only that last character to 7 in 267069.", "answer": "267069", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776954154.809694, "model_name": "qwen3:14b", "instruction": "replace the last character with 8 only when the ending character is 4 in 212926.", "answer": "212926", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776954154.809694, "model_name": "qwen3:14b", "instruction": "replace the last character with 1 only when the ending character is 8 in 748298.", "answer": "748291", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1776954154.809694, "model_name": "qwen3:14b", "instruction": "replace the last character with 8 only when the ending character is 2 in 661392.", "answer": "661398", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015180.775116, "model_name": "qwen3:14b", "instruction": "find the first set of digits from this string of numbers: 3122 $ 8692 - 2498 + 3969 @ 9994\\ 6894", "answer": "3122", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015180.775116, "model_name": "qwen3:14b", "instruction": "replace only the first occurrence of 8 with 9, leaving all other occurrences unchanged in 384326.", "answer": "394326", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015180.775116, "model_name": "qwen3:14b", "instruction": "replace only the first occurrence of 9 with 2, leaving all other occurrences unchanged in 790888.", "answer": "720888", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015464.836874, "model_name": "qwen3:14b", "instruction": "erase each occurrence of t in thousand.", "answer": "housand", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015464.836874, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 7 from 797481.", "answer": "9481", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015464.836874, "model_name": "qwen3:14b", "instruction": "erase each occurrence of 1 in 212714.", "answer": "2274", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015594.7992861, "model_name": "qwen3:14b", "instruction": "erase each occurrence of 3 in 123157.", "answer": "12157", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015594.7992861, "model_name": "qwen3:14b", "instruction": "remove all occurrences of 9 from 866319.", "answer": "86631", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015594.7992861, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 2 from 540264.", "answer": "54064", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015720.732569, "model_name": "qwen3:14b", "instruction": "erase each occurrence of 1 in 719532.", "answer": "79532", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015720.732569, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 2 from 492274.", "answer": "4974", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015720.732569, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 1 from 943217.", "answer": "94327", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015846.445651, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 2 from 782782.", "answer": "7878", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015846.445651, "model_name": "qwen3:14b", "instruction": "remove all occurrences of 1 from 671018.", "answer": "6708", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015846.445651, "model_name": "qwen3:14b", "instruction": "delete every occurrence of 1 in 951153.", "answer": "9553", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015994.386039, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 4 from 674344.", "answer": "673", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015994.386039, "model_name": "qwen3:14b", "instruction": "delete every occurrence of r in thursday.", "answer": "thusday", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777015994.386039, "model_name": "qwen3:14b", "instruction": "erase each occurrence of e in presence.", "answer": "prsnc", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777016117.373924, "model_name": "qwen3:14b", "instruction": "delete every occurrence of 7 in 721017.", "answer": "2101", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777016117.373924, "model_name": "qwen3:14b", "instruction": "delete each occurrence of 9 from 148792.", "answer": "14872", "success": true, "source": "hcaptcha_demo_fast"}
-{"timestamp": 1777016117.373924, "model_name": "qwen3:14b", "instruction": "delete every occurrence of 7 in 798410.", "answer": "98410", "success": true, "source": "hcaptcha_demo_fast"}
+{"timestamp": 1777027755.066255, "model_name": "qwen3:14b", "instruction": "When the final character is y, change only that last\ncharacter to z in creation.", "answer": "creation", "success": true}
+{"timestamp": 1777027755.066255, "model_name": "qwen3:14b", "instruction": "If it ends with v, replace that final v with x in\ncreation.", "answer": "creation", "success": true}
+{"timestamp": 1777027755.066255, "model_name": "qwen3:14b", "instruction": "When the final character is r, change only that last\ncharacter to w in exciting.", "answer": "exciting", "success": true}
+{"timestamp": 1777028348.232181, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of 7 from 369557.", "answer": "36955", "success": true}
+{"timestamp": 1777028348.232181, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of 7 from 254718.", "answer": "25418", "success": true}
+{"timestamp": 1777028348.232181, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 8 from 314806.", "answer": "31406", "success": true}
+{"timestamp": 1777028356.0655181, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of 7 from 369557.", "answer": "36955", "success": true}
+{"timestamp": 1777028356.0655181, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of 7 from 254718.", "answer": "25418", "success": true}
+{"timestamp": 1777028356.0655181, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 8 from 314806.", "answer": "31406", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "When the final character is e, change only that last\ncharacter to b in religion.", "answer": "religion", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "Replace the last character with o only when the\nending character is d in combined.", "answer": "combinedo", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "Replace the last character with a only when the\nending character is n in addition.", "answer": "ordin|ay", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "Replace the last character with v only when the\nending character is n in accurate.", "answer": "accurate", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "If it ends with g, replace that final g with hin\nbuilding.", "answer": "building", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "Replace the last character with q only when the\nending character is k in learning.", "answer": "learniq", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "If it ends with |, replace that final | with z in\naffected.", "answer": "affected", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "Only if the ending is y, replace the last character\nwith r in attorney.", "answer": "attorney", "success": true}
+{"timestamp": 1777029258.614658, "model_name": "gemma3:4b", "instruction": "Only if the ending is |, replace the last character\nwith g in football.", "answer": "footbalg", "success": true}
+{"timestamp": 1777029289.137079, "model_name": "gemma3:4b", "instruction": "If it ends with |, replace that final | with z in\naffected.", "answer": "affected", "success": true}
+{"timestamp": 1777029289.137079, "model_name": "gemma3:4b", "instruction": "Only if the ending is y, replace the last character\nwith r in attorney.", "answer": "attorney", "success": true}
+{"timestamp": 1777029289.137079, "model_name": "gemma3:4b", "instruction": "Only if the ending is |, replace the last character\nwith g in football.", "answer": "footbalg", "success": true}
+{"timestamp": 1777031987.75162, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of 4 in 854067.", "answer": "85067", "success": true}
+{"timestamp": 1777031987.75162, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of f from transfer.", "answer": "transer", "success": true}
+{"timestamp": 1777031987.75162, "model_name": "gemma3:4b", "instruction": "Delete every occurrence of 2 in 772266.", "answer": "7766", "success": true}
+{"timestamp": 1777032003.017222, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of 4 in 854067.", "answer": "85067", "success": true}
+{"timestamp": 1777032003.017222, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of f from transfer.", "answer": "transer", "success": true}
+{"timestamp": 1777032003.017222, "model_name": "gemma3:4b", "instruction": "Delete every occurrence of 2 in 772266.", "answer": "7766", "success": true}
+{"timestamp": 1777032262.390445, "model_name": "gemma3:4b", "instruction": "If it ends with v, replace that final v with m in\nmultiple.", "answer": "multiple", "success": true}
+{"timestamp": 1777032262.390445, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of r from whatever.", "answer": "whatever", "success": true}
+{"timestamp": 1777032262.390445, "model_name": "gemma3:4b", "instruction": "Only if the ending is g, replace the last character\nwith z in shipping.", "answer": "shippinz", "success": true}
+{"timestamp": 1777032276.813159, "model_name": "gemma3:4b", "instruction": "If it ends with v, replace that final v with m in\nmultiple.", "answer": "multiple", "success": true}
+{"timestamp": 1777032276.813159, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of r from whatever.", "answer": "whatever", "success": true}
+{"timestamp": 1777032276.813159, "model_name": "gemma3:4b", "instruction": "Only if the ending is g, replace the last character\nwith z in shipping.", "answer": "shippinz", "success": true}
+{"timestamp": 1777032642.810737, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of 7 from 771437.", "answer": "77143", "success": true}
+{"timestamp": 1777032642.810737, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of s from schedule.", "answer": "chedule", "success": true}
+{"timestamp": 1777032642.810737, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of o from positive.", "answer": "paitive", "success": true}
+{"timestamp": 1777032642.810737, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 7 from 679226.", "answer": "69226", "success": true}
+{"timestamp": 1777032642.810737, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 7 from 495447.", "answer": "49544", "success": true}
+{"timestamp": 1777032642.810737, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of f from february.", "answer": "february", "success": true}
+{"timestamp": 1777032681.689467, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 7 from 679226.", "answer": "69226", "success": true}
+{"timestamp": 1777032681.689467, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 7 from 495447.", "answer": "49544", "success": true}
+{"timestamp": 1777032681.689467, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of f from february.", "answer": "february", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "If it ends with d, replace that final d with p in\nstandard.", "answer": "standard", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "When the final character is r, change only that last\ncharacter to n in register.", "answer": "n", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "If it ends with n, replace that final n with o in\nreaction.", "answer": "reaction", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "If it ends with g, replace that final g with f in\nbecoming.", "answer": "becoming", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "When the final character is h, change only that last\ncharacter to g in scottish.", "answer": "lg", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "Replace the last character with v only when the\nending character is k in category.", "answer": "milkv", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "Replace the last character with k only when the\nending character is f in everyone.", "answer": "everyonek", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "If it ends with e, replace that final e with k in\nviolence.", "answer": "violenck", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "Only if the ending is q, replace the last character\nwith s in exchange.", "answer": "acquisition", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "When the final character is z, change only that last\ncharacter to b in presence.", "answer": "presence", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "When the final character is h, change only that last\ncharacter to s in selected.", "answer": "selecteds", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "Replace the last character with q only when the\nending character is t in conflict.", "answer": "conflict", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "If it ends with r, replace that final r with x in director.", "answer": "directox", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "Only if the ending is e, replace the last character\nwith t in prepared.", "answer": "preparedt", "success": true}
+{"timestamp": 1777033652.888202, "model_name": "gemma3:4b", "instruction": "If it ends with w, replace that final w with h in\nstarting.", "answer": "starting", "success": true}
+{"timestamp": 1777034187.079659, "model_name": "gemma3:4b", "instruction": "Replace only the first occurrence of 1 with 5 in\n423817.", "answer": "423857", "success": true}
+{"timestamp": 1777034187.079659, "model_name": "gemma3:4b", "instruction": "Output the starting group of numeric values\nconsidering this arrangement: 8965 + 6588 7060\n..- 6541| 7194 | 4682", "answer": "4682", "success": true}
+{"timestamp": 1777034187.079659, "model_name": "gemma3:4b", "instruction": "Replace only the first occurrence of 2 with 8 in\n244834.", "answer": "844834", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of d in combined.", "answer": "combinea", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Delete every occurrence of i in material.", "answer": "matertal", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of a from material.", "answer": "meterial", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of 3 from 838843.", "answer": "8884", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of a in analysis.", "answer": "enleysis", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of 5 in 596730.", "answer": "596730", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "If it ends with 7, replace that final 7 with 6 in\n502517.", "answer": "502516", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of iin critical.", "answer": "cructral", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of n from finished.", "answer": "fished", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Erase each occurrence of t in solution.", "answer": "soluion", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Remove all occurrences of d from identify.", "answer": "identify", "success": true}
+{"timestamp": 1777034964.354435, "model_name": "gemma3:4b", "instruction": "Delete every occurrence of 9 in 199558.", "answer": "1558", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Only if the ending is e, replace the last character\nwith r in electric.", "answer": "electri**r**", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Replace the last character with t only when the\nending character is c in prepared.", "answer": "prepared", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "If it ends with e, replace that final e with iin\naudience.", "answer": "audinci", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Only if the ending is a, replace the last character\nwith cin shoulder.", "answer": "shoulderc", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Only if the ending is e, replace the last character\nwith z in advanced.", "answer": "advanzed", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Only if the ending is n, replace the last character\nwith u in addition.", "answer": "sun", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Replace the last character with y only when the\nending character is d in standard.", "answer": "standard", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Replace the last character with f only when the\nending character is e in valuable.", "answer": "valuablef", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Replace the last character with g only when the\nending character is y in honestly.", "answer": "honestlyg", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "When the final character is y, change only that last\ncharacter to x in saturday.", "answer": "saturday", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "When the final character is g, change only that last\ncharacter to p in becoming.", "answer": "becoming", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Delete each occurrence of r from virginia.", "answer": "viginia", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "If it ends with j, replace that final j with m in\nmovement.", "answer": "movement", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Only if the ending is r, replace the last character\nwith f in consider.", "answer": "consider", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "Only if the ending is g, replace the last character\nwith f in training.", "answer": "trainfing", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "If it ends with z, replace that final z with y in\nmovement.", "answer": "movement", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "If it ends with m, replace that final m with iin\ncreative.", "answer": "creative", "success": true}
+{"timestamp": 1777036033.309128, "model_name": "gemma3:4b", "instruction": "If it ends with y, replace that final y with | in\nstrategy.", "answer": "strateg|", "success": true}
+{"timestamp": 1777036049.477111, "model_name": "gemma3:4b", "instruction": "If it ends with z, replace that final z with y in\nmovement.", "answer": "movement", "success": true}
+{"timestamp": 1777036049.477111, "model_name": "gemma3:4b", "instruction": "If it ends with m, replace that final m with iin\ncreative.", "answer": "creative", "success": true}
+{"timestamp": 1777036049.477111, "model_name": "gemma3:4b", "instruction": "If it ends with y, replace that final y with | in\nstrategy.", "answer": "strateg|", "success": true}
+{"timestamp": 1777036976.549334, "model_name": "gemma3:12b", "instruction": "Erase each occurrence of 6 in 184965.", "answer": "18495", "success": true}
+{"timestamp": 1777036976.549334, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 9 from 957091.", "answer": "5701", "success": true}
+{"timestamp": 1777036976.549334, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 7 from 972366.", "answer": "92366", "success": true}
+{"timestamp": 1777037124.204844, "model_name": "gemma3:12b", "instruction": "Replace the last character with 2 only when the\nending character is 8 in 258604.", "answer": "258604", "success": true}
+{"timestamp": 1777037124.204844, "model_name": "gemma3:12b", "instruction": "When the final character is 7, change only that last\ncharacter to 0 in 930942.", "answer": "9309420", "success": true}
+{"timestamp": 1777037124.204844, "model_name": "gemma3:12b", "instruction": "Remove all occurrences of t from district.", "answer": "disric", "success": true}
+{"timestamp": 1777037295.744968, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 3 from 411839.", "answer": "41189", "success": true}
+{"timestamp": 1777037295.744968, "model_name": "gemma3:12b", "instruction": "Remove all occurrences of 9 from 179327.", "answer": "17327", "success": true}
+{"timestamp": 1777037295.744968, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 4 in 421486.", "answer": "2186", "success": true}
+{"timestamp": 1777037446.72516, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 7 from 786512.", "answer": "86512", "success": true}
+{"timestamp": 1777037446.72516, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of s from straight.", "answer": "trait", "success": true}
+{"timestamp": 1777037446.72516, "model_name": "gemma3:12b", "instruction": "Remove all occurrences of b from behavior.", "answer": "heavio", "success": true}
+{"timestamp": 1777037446.72516, "model_name": "gemma3:12b", "instruction": "Erase each occurrence of 9 in 856998.", "answer": "85688", "success": true}
+{"timestamp": 1777037446.72516, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 6 from 691706.", "answer": "9170", "success": true}
+{"timestamp": 1777037446.72516, "model_name": "gemma3:12b", "instruction": "Erase each occurrence of 1 in 164607.", "answer": "64607", "success": true}
+{"timestamp": 1777037810.58686, "model_name": "gemma3:12b", "instruction": "Remove all occurrences of c from economic.", "answer": "eonomi", "success": true}
+{"timestamp": 1777037810.58686, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of r from straight.", "answer": "state", "success": true}
+{"timestamp": 1777037810.58686, "model_name": "gemma3:12b", "instruction": "Erase each occurrence of h in although.", "answer": "aloug", "success": true}
+{"timestamp": 1777037810.58686, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 4 in 540243.", "answer": "5023", "success": true}
+{"timestamp": 1777037810.58686, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of r in terrible.", "answer": "teble", "success": true}
+{"timestamp": 1777037810.58686, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 9 in 379818.", "answer": "37818", "success": true}
+{"timestamp": 1777037829.494668, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 4 in 540243.", "answer": "5023", "success": true}
+{"timestamp": 1777037829.494668, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of r in terrible.", "answer": "teble", "success": true}
+{"timestamp": 1777037829.494668, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 9 in 379818.", "answer": "37818", "success": true}
+{"timestamp": 1777038065.480418, "model_name": "gemma3:12b", "instruction": "Replace only the first occurrence of 4 with 7,\nleaving all other occurrences unchanged in\n482336.", "answer": "782336", "success": true}
+{"timestamp": 1777038065.480418, "model_name": "gemma3:12b", "instruction": "Replace only the first occurrence of 8 with 5,\nleaving all other occurrences unchanged in\n137280.", "answer": "137250", "success": true}
+{"timestamp": 1777038065.480418, "model_name": "gemma3:12b", "instruction": "Which one is the 5th set of numbers from the\nfollowing sequence: 294 - 6285 | 1979 * 5511 -\n8490 | 1066?", "answer": "1066", "success": true}
+{"timestamp": 1777038084.4679601, "model_name": "gemma3:12b", "instruction": "Replace only the first occurrence of 4 with 7,\nleaving all other occurrences unchanged in\n482336.", "answer": "782336", "success": true}
+{"timestamp": 1777038084.4679601, "model_name": "gemma3:12b", "instruction": "Replace only the first occurrence of 8 with 5,\nleaving all other occurrences unchanged in\n137280.", "answer": "137250", "success": true}
+{"timestamp": 1777038084.4679601, "model_name": "gemma3:12b", "instruction": "Which one is the 5th set of numbers from the\nfollowing sequence: 294 - 6285 | 1979 * 5511 -\n8490 | 1066?", "answer": "1066", "success": true}
+{"timestamp": 1777038183.644181, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 7 in 845777.", "answer": "845", "success": true}
+{"timestamp": 1777038183.644181, "model_name": "gemma3:12b", "instruction": "Remove all occurrences of 6 from 646587.", "answer": "4587", "success": true}
+{"timestamp": 1777038183.644181, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 1 from 182085.", "answer": "82085", "success": true}
+{"timestamp": 1777038204.237636, "model_name": "gemma3:12b", "instruction": "Delete every occurrence of 7 in 845777.", "answer": "845", "success": true}
+{"timestamp": 1777038204.237636, "model_name": "gemma3:12b", "instruction": "Remove all occurrences of 6 from 646587.", "answer": "4587", "success": true}
+{"timestamp": 1777038204.237636, "model_name": "gemma3:12b", "instruction": "Delete each occurrence of 1 from 182085.", "answer": "82085", "success": true}
