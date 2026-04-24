@@ -443,6 +443,7 @@ def run(playwright: Playwright) -> None:
     time.sleep(2)
     
     # Solve captcha, and if the iframe reappears after a solve, repeat the loop
+    last_successful_pairs = []
     while True:
         solved, pairs = solve_captcha_loop(page, model_name, username)
         if not solved:
@@ -450,6 +451,9 @@ def run(playwright: Playwright) -> None:
             context.close()
             browser.close()
             return
+        # Save last 3 pairs from this successful captcha solve
+        if pairs:
+            last_successful_pairs = pairs[-3:] if len(pairs) >= 3 else pairs
         # Final check for any remaining submit button
         try:
             submit_btn = page.locator("iframe[title=\"hCaptcha challenge\"]").content_frame.get_by_role("button", name="Submit")
@@ -473,6 +477,10 @@ def run(playwright: Playwright) -> None:
     print("LOG:Account created successfully!")
     print(f"LOG:Username: {username}")
     print(f"LOG:Password: {password}")
+    # Save last 3 captcha samples only after successful login redirect
+    if last_successful_pairs:
+        print(f"LOG:Storing last {len(last_successful_pairs)} captcha samples after successful login redirect.")
+        store_training_batch(last_successful_pairs, model_name, username)
     # Save account to database
     insert_account(email, password, username)
 
