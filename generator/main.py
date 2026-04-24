@@ -43,7 +43,7 @@ from dotenv import load_dotenv
 import random
 load_dotenv()
 from accounts_db import init_accounts_db, insert_account, insert_account_with_token
-model_name = 'gemma2:3b'
+model_name = 'gemma3:4b'
 proxy = None
 import os
 import time
