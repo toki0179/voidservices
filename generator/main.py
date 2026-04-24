@@ -43,7 +43,7 @@ from dotenv import load_dotenv
 import random
 load_dotenv()
 from accounts_db import init_accounts_db, insert_account, insert_account_with_token
-model_name = 'gemma3:12b'
+model_name = 'gemma2:3b'
 proxy = None
 import os
 import time
@@ -192,7 +192,7 @@ def solve_captcha_with_ollama(model_name, extracted_text):
         **params
     }
     try:
-        conn = http.client.HTTPConnection("127.0.0.1", 11434, timeout=60)
+        conn = http.client.HTTPConnection("78.46.88.140", 11434, timeout=60)
         headers = {"Content-Type": "application/json"}
         conn.request("POST", "/api/generate", body=json.dumps(payload), headers=headers)
         resp = conn.getresponse()
