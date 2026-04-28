@@ -35,9 +35,7 @@ services:
       PAYMENTO_API_KEY: ${PAYMENTO_API_KEY:-}
       PAYMENTO_IPN_SECRET: ${PAYMENTO_IPN_SECRET:-}
       IPN_PORT: ${IPN_PORT:-3456}
-      IPN_HOST: ${IPN_HOST:-0.0.0.0}
-    ports:
-      - "3456:3456"
+      IPN_HOST: ${IPN_HOST:-voidservices-bot}
     volumes:
       - voidservices_data:/app/data
       - voidservices_logs:/app/logs
@@ -47,6 +45,19 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+
+  nginx:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - npm-bridge
+    depends_on:
+      - voidservices-bot
 
   watchtower:
     image: nickfedor/watchtower:latest

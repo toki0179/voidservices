@@ -6,6 +6,10 @@ import { savePaymentOrder, getPaymentOrder, updatePaymentOrderStatus, TIER_PRICE
 const API_BASE = 'https://api.paymento.io/v1';
 
 export async function createPayment(userId, tier, returnUrl) {
+  if (!config.paymentoApiKey) {
+    throw new Error('Paymento API key not configured');
+  }
+
   const price = TIER_PRICES[tier];
   if (!price) {
     throw new Error(`Invalid tier: ${tier}`);
@@ -15,10 +19,13 @@ export async function createPayment(userId, tier, returnUrl) {
   const body = {
     fiatAmount: price.fiatAmount,
     fiatCurrency: price.fiatCurrency,
-    returnUrl: returnUrl || `${returnUrl}?orderId=${orderId}&status=complete`,
     orderId,
     riskSpeed: 0,
   };
+
+  if (returnUrl) {
+    body.returnUrl = returnUrl;
+  }
 
   const response = await fetch(`${API_BASE}/payment/request`, {
     method: 'POST',
@@ -36,23 +43,36 @@ export async function createPayment(userId, tier, returnUrl) {
     throw new Error(`Payment creation failed: ${text}`);
   }
 
-  let data;
+  let token = text.trim();
+  let parsedOrderId = orderId;
+  
   try {
-    data = JSON.parse(text);
+    const data = JSON.parse(text);
+    token = data.token || token;
+    parsedOrderId = data.orderId || parsedOrderId;
   } catch {
-    data = { token: text.trim() };
+    // text is the token itself
   }
 
-  await savePaymentOrder(orderId, userId, tier);
+  if (!token) {
+    console.error('[paymento] No token in response:', text);
+    throw new Error('Paymento did not return a token');
+  }
+
+  await savePaymentOrder(parsedOrderId, userId, tier);
 
   return {
-    orderId: data.orderId || orderId,
-    token: data.token,
-    paymentUrl: `https://app.paymento.io/gateway?token=${data.token}`,
+    orderId: parsedOrderId,
+    token,
+    paymentUrl: `https://app.paymento.io/gateway?token=${token}`,
   };
 }
 
 export async function verifyPayment(token) {
+  if (!config.paymentoApiKey) {
+    throw new Error('Paymento API key not configured');
+  }
+
   const response = await fetch(`${API_BASE}/payment/verify`, {
     method: 'POST',
     headers: {
@@ -73,12 +93,20 @@ export async function verifyPayment(token) {
 }
 
 export function verifyHmac(rawBody, signature) {
-  const expected = crypto
-    .createHmac('sha256', config.paymentoSecret)
-    .update(rawBody, 'utf8')
-    .digest('hex');
+  if (!config.paymentoSecret || !signature) {
+    return false;
+  }
 
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  try {
+    const expected = crypto
+      .createHmac('sha256', config.paymentoSecret)
+      .update(rawBody, 'utf8')
+      .digest('hex');
+
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 export async function processCallback(orderId, status) {
