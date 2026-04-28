@@ -48,7 +48,8 @@ export async function createPayment(userId, tier, returnUrl) {
   
   try {
     const data = JSON.parse(text);
-    token = data.token || token;
+    // Paymento returns token in body field: {"body":"TOKEN","success":true,...}
+    token = data.body || data.token || token;
     parsedOrderId = data.orderId || parsedOrderId;
   } catch {
     // text is the token itself
