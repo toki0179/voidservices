@@ -1,4 +1,6 @@
+import crypto from 'node:crypto';
 import pkg from 'pg';
+import { config } from '../config.js';
 const { Pool } = pkg;
 
 const pool = new Pool({
@@ -80,6 +82,11 @@ export async function getEntitlement(userId) {
 }
 
 export async function hasAccess(userId, feature) {
+  // Creator bypasses all access checks
+  if (config.creatorId && userId === config.creatorId) {
+    return true;
+  }
+
   try {
     const tier = await getTier(userId);
     const features = TIER_FEATURES[tier] || [];
@@ -88,6 +95,10 @@ export async function hasAccess(userId, feature) {
     console.error('[entitlements] hasAccess error:', error.message);
     return false;
   }
+}
+
+export function isCreator(userId) {
+  return config.creatorId && userId === config.creatorId;
 }
 
 export async function grantAccess(userId, tier, expiresAt = null) {
