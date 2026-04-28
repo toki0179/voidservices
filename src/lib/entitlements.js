@@ -57,7 +57,7 @@ async function initPaymentOrdersTable() {
 export async function getTier(userId) {
   await initEntitlementsTable();
   const res = await pool.query('SELECT tier, expires_at FROM user_entitlements WHERE user_id = $1', [userId]);
-  if (res.rows.length === 0) return TIER_FREE;
+  if (res.rows.length === 0) return TIERS.FREE;
   const { tier, expires_at } = res.rows[0];
   if (expires_at && new Date(expires_at) < new Date()) return TIERS.FREE;
   return tier;
