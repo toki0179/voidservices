@@ -83,7 +83,10 @@ export async function getEntitlement(userId) {
 
 export async function hasAccess(userId, feature) {
   // Creator bypasses all access checks
-  if (config.creatorId && userId === config.creatorId) {
+  console.log(`[entitlements] hasAccess: userId=${userId} (${typeof userId}), creatorId=${config.creatorId} (${typeof config.creatorId}), feature=${feature}`);
+  
+  if (config.creatorId && String(userId) === String(config.creatorId)) {
+    console.log(`[entitlements] Creator bypass granted`);
     return true;
   }
 
