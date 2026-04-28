@@ -27,6 +27,7 @@ const TIER_FEATURES = {
 };
 
 async function initEntitlementsTable() {
+  console.log('[entitlements] Initializing user_entitlements table...');
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_entitlements (
       id SERIAL PRIMARY KEY,
@@ -38,6 +39,7 @@ async function initEntitlementsTable() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_entitlements_user_id ON user_entitlements(user_id);`);
+  console.log('[entitlements] user_entitlements table ready');
 }
 
 async function initPaymentOrdersTable() {
@@ -55,24 +57,42 @@ async function initPaymentOrdersTable() {
 }
 
 export async function getTier(userId) {
-  await initEntitlementsTable();
-  const res = await pool.query('SELECT tier, expires_at FROM user_entitlements WHERE user_id = $1', [userId]);
-  if (res.rows.length === 0) return TIERS.FREE;
-  const { tier, expires_at } = res.rows[0];
-  if (expires_at && new Date(expires_at) < new Date()) return TIERS.FREE;
-  return tier;
+  try {
+    await initEntitlementsTable();
+    const res = await pool.query('SELECT tier, expires_at FROM user_entitlements WHERE user_id = $1', [userId]);
+    if (res.rows.length === 0) return TIERS.FREE;
+    const { tier, expires_at } = res.rows[0];
+    if (expires_at && new Date(expires_at) < new Date()) return TIERS.FREE;
+    return tier;
+  } catch (error) {
+    console.error('[entitlements] getTier error:', error.message);
+    return TIERS.FREE;
+  }
 }
 
 export async function getEntitlement(userId) {
-  await initEntitlementsTable();
-  const res = await pool.query('SELECT * FROM user_entitlements WHERE user_id = $1', [userId]);
-  return res.rows[0] || null;
+  try {
+    await initEntitlementsTable();
+    const res = await pool.query('SELECT * FROM user_entitlements WHERE user_id = $1', [userId]);
+    return res.rows[0] || null;
+  } catch (error) {
+    console.error('[entitlements] getEntitlement error:', error.message);
+    return null;
+  }
 }
 
 export async function hasAccess(userId, feature) {
-  const tier = await getTier(userId);
-  const features = TIER_FEATURES[tier] || [];
-  return features.includes(feature);
+  try {
+    const tier = await getTier(userId);
+    console.log(`[entitlements] hasAccess check: userId=${userId}, feature=${feature}, tier=${tier}`);
+    const features = TIER_FEATURES[tier] || [];
+    const hasAccess = features.includes(feature);
+    console.log(`[entitlements] hasAccess result: ${hasAccess} (features for ${tier}: ${features.join(', ')})`);
+    return hasAccess;
+  } catch (error) {
+    console.error('[entitlements] hasAccess error:', error.message);
+    return false;
+  }
 }
 
 export async function grantAccess(userId, tier, expiresAt = null) {
