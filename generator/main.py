@@ -536,18 +536,7 @@ def run(playwright: Playwright) -> None:
     page.wait_for_url("https://discord.com/channels/@me", timeout=60000)
     time.sleep(5)
     # Get the token from local storage window.webpackChunkdiscord_app.push([[Symbol()],{},o=>{for(let e of Object.values(o.c))try{if(!e.exports||e.exports===window)continue;e.exports?.getToken&&(token=e.exports.getToken());for(let o in e.exports)e.exports?.[o]?.getToken&&"IntlMessagesProxy"!==e.exports[o][Symbol.toStringTag]&&(token=e.exports[o].getToken())}catch{}}]),window.webpackChunkdiscord_app.pop(),token;
-    JS_SNIPPET = """
-    let token;
-        window.webpackChunkdiscord_app.push([[Symbol()],{},o=>{
-            for(let e of Object.values(o.c)) try {
-                if(!e.exports||e.exports===window) continue;
-                e.exports?.getToken&&(token=e.exports.getToken());
-                for(let o in e.exports) e.exports?.[o]?.getToken&&"IntlMessagesProxy"!==e.exports[o][Symbol.toStringTag]&&(token=e.exports[o].getToken())
-            } catch {}
-        }]);
-        window.webpackChunkdiscord_app.pop();
-        token;
-    """
+    JS_SNIPPET = """window.webpackChunkdiscord_app.push([[Symbol()],{},o=>{for(let e of Object.values(o.c))try{if(!e.exports||e.exports===window)continue;e.exports?.getToken&&(token=e.exports.getToken());for(let o in e.exports)e.exports?.[o]?.getToken&&"IntlMessagesProxy"!==e.exports[o][Symbol.toStringTag]&&(token=e.exports[o].getToken())}catch{}}]),window.webpackChunkdiscord_app.pop(),token;"""
     token = page.evaluate(JS_SNIPPET)
 
     # Save account to database with token
