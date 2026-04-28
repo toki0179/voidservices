@@ -27,7 +27,6 @@ const TIER_FEATURES = {
 };
 
 async function initEntitlementsTable() {
-  console.log('[entitlements] Initializing user_entitlements table...');
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_entitlements (
       id SERIAL PRIMARY KEY,
@@ -39,7 +38,6 @@ async function initEntitlementsTable() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_entitlements_user_id ON user_entitlements(user_id);`);
-  console.log('[entitlements] user_entitlements table ready');
 }
 
 async function initPaymentOrdersTable() {
@@ -84,11 +82,8 @@ export async function getEntitlement(userId) {
 export async function hasAccess(userId, feature) {
   try {
     const tier = await getTier(userId);
-    console.log(`[entitlements] hasAccess check: userId=${userId}, feature=${feature}, tier=${tier}`);
     const features = TIER_FEATURES[tier] || [];
-    const hasAccess = features.includes(feature);
-    console.log(`[entitlements] hasAccess result: ${hasAccess} (features for ${tier}: ${features.join(', ')})`);
-    return hasAccess;
+    return features.includes(feature);
   } catch (error) {
     console.error('[entitlements] hasAccess error:', error.message);
     return false;
