@@ -162,7 +162,7 @@ export default {
     ),
 
   async execute(interaction) {
-    if (!hasAccess(interaction.user.id, 'selfbot')) {
+    if (!(await hasAccess(interaction.user.id, 'selfbot'))) {
       await interaction.reply({
         content: 'This feature requires premium access. Run `/subscribe` to unlock!',
         ephemeral: true,
@@ -171,7 +171,7 @@ export default {
       return;
     }
 
-    if (!hasToken(interaction.user.id)) {
+    if (!await hasToken(interaction.user.id)) {
       await interaction.reply({
         content: 'You need to register a token first using `/sbcreate`.',
         ephemeral: true,

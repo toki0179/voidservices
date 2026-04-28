@@ -8,7 +8,7 @@ export default {
     .setDescription('Delete your registered selfbot token'),
 
   async execute(interaction) {
-    if (!hasAccess(interaction.user.id, 'selfbot')) {
+    if (!(await hasAccess(interaction.user.id, 'selfbot'))) {
       await interaction.reply({
         content: 'This feature requires premium access. Run `/subscribe` to unlock!',
         flags: MessageFlags.Ephemeral,
@@ -16,7 +16,7 @@ export default {
       return;
     }
 
-    if (!hasToken(interaction.user.id)) {
+    if (!await hasToken(interaction.user.id)) {
       await interaction.reply({
         content: 'You do not have a registered token.',
         flags: MessageFlags.Ephemeral,

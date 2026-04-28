@@ -73,7 +73,7 @@ export default {
     ),
 
   async execute(interaction) {
-    if (!hasAccess(interaction.user.id, 'boost')) {
+    if (!(await hasAccess(interaction.user.id, 'boost'))) {
       await interaction.reply({
         content: 'This feature requires premium access. Run `/subscribe` to unlock!',
         flags: MessageFlags.Ephemeral,

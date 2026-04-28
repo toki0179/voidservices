@@ -173,23 +173,14 @@ export default {
         .setRequired(true)
     ),
 
-  async execute(interaction) {
-    console.log(`[gen] Checking access for user ${interaction.user.id}...`);
-    
-    const hasAccessResult = await hasAccess(interaction.user.id, 'gen');
-    console.log(`[gen] hasAccess returned: ${hasAccessResult}`);
-    
-    if (!hasAccessResult) {
-      console.log(`[gen] Access denied, sending reply...`);
+async execute(interaction) {
+    if (!(await hasAccess(interaction.user.id, 'gen'))) {
       await interaction.reply({
         content: 'This feature requires premium access. Run `/subscribe` to unlock!',
         flags: MessageFlags.Ephemeral,
       });
-      console.log(`[gen] Reply sent, returning...`);
       return;
     }
-
-    console.log(`[gen] Access granted, proceeding...`);
 
     const iterations = interaction.options.getNumber('iterations', true);
     const userId = interaction.user.id;

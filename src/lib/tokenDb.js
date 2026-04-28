@@ -1,4 +1,3 @@
-
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -46,16 +45,14 @@ export async function deleteToken(userId) {
   await pool.query('DELETE FROM selfbot_tokens WHERE user_id = $1', [userId]);
 }
 
-export function hasToken(userId) {
-	const database = getDb();
-	const stmt = database.prepare('SELECT 1 FROM selfbot_tokens WHERE user_id = ? LIMIT 1');
-
-	return stmt.get(userId) !== undefined;
+export async function hasToken(userId) {
+  await initTokenTable();
+  const res = await pool.query('SELECT 1 FROM selfbot_tokens WHERE user_id = $1 LIMIT 1', [userId]);
+  return res.rows.length > 0;
 }
 
-export function getAllUserIds() {
-	const database = getDb();
-	const stmt = database.prepare('SELECT user_id FROM selfbot_tokens');
-
-	return stmt.all().map((row) => row.user_id);
+export async function getAllUserIds() {
+  await initTokenTable();
+  const res = await pool.query('SELECT user_id FROM selfbot_tokens');
+  return res.rows.map(row => row.user_id);
 }

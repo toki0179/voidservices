@@ -9,7 +9,7 @@ export default {
     .addStringOption((option) => option.setName('subtitle').setDescription('Card subtitle')),
 
   async execute(interaction) {
-    if (!hasAccess(interaction.user.id, 'showcase')) {
+    if (!(await hasAccess(interaction.user.id, 'showcase'))) {
       await interaction.reply({
         content: 'This feature requires premium access. Run `/subscribe` to unlock!',
         flags: MessageFlags.Ephemeral,
