@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fetch from 'node-fetch';
 import { config } from '../config.js';
-import { savePaymentOrder, getPaymentOrder, updatePaymentOrderStatus, TIER_PRICES, TIER_FEATURES, TIERS, hasAccess, grantAccess } from './entitlements.js';
+import { savePaymentOrder, getPaymentOrder, updatePaymentOrderStatus, TIER_PRICES, TIERS, hasAccess, grantAccess } from './entitlements.js';
 
 const API_BASE = 'https://api.paymento.io/v1';
 
