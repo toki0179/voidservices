@@ -24,6 +24,7 @@ services:
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
       CLIENT_ID: ${CLIENT_ID:-}
       GUILD_ID: ${GUILD_ID:-}
+      CREATOR_ID: ${CREATOR_ID:-}
       TOKEN_DB_PATH: ${TOKEN_DB_PATH:-/app/data/tokens.db}
       NODE_ENV: production
       DB_HOST: db
@@ -31,6 +32,12 @@ services:
       DB_NAME: voidservices
       DB_USER: voiduser
       DB_PASSWORD: voidpass
+      PAYMENTO_API_KEY: ${PAYMENTO_API_KEY:-}
+      PAYMENTO_IPN_SECRET: ${PAYMENTO_IPN_SECRET:-}
+      IPN_PORT: ${IPN_PORT:-3456}
+      IPN_HOST: ${IPN_HOST:-0.0.0.0}
+    ports:
+      - "3456:3456"
     volumes:
       - voidservices_data:/app/data
       - voidservices_logs:/app/logs
