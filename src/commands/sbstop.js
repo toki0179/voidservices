@@ -3,6 +3,7 @@ import {
   ChannelType,
 } from 'discord.js';
 import { stopSelfbot, getActiveBots } from '../lib/selfbotManager.js';
+import { hasAccess } from '../lib/entitlements.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -13,10 +14,18 @@ export default {
         .setName('channel')
         .setDescription('Channel where the selfbot is running')
         .addChannelTypes(ChannelType.GuildText)
-        .setRequired(true),
+        .setRequired(true)
     ),
 
   async execute(interaction) {
+    if (!hasAccess(interaction.user.id, 'selfbot')) {
+      await interaction.reply({
+        content: 'This feature requires premium access. Run `/subscribe` to unlock!',
+        ephemeral: true,
+      });
+      return;
+    }
+
     const channel = interaction.options.getChannel('channel', true);
 
     const result = stopSelfbot(interaction.user.id, channel.id);

@@ -18,11 +18,13 @@ import { registerCommands } from './lib/registerCommands.js';
 import { saveToken, getToken } from './lib/tokenDb.js';
 import { startSelfbot } from './lib/selfbotManager.js';
 import { startResidentialProxySyncJob } from './lib/proxySync.js';
+import { startIpnServer } from './ipn-server.js';
 import {
   buildSbRunSetupUi,
   getDefaultSbRunConfig,
   resolveBasePrompt,
 } from './commands/sbrun.js';
+import { handleTierSelect } from './commands/subscribe.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,6 +120,7 @@ async function sendCreatorLog(content) {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+  startIpnServer();
   startResidentialProxySyncJob({
     onRunCompleted: async (result) => {
       try {
@@ -232,6 +235,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       setSetupState(interaction.user.id, presetChannelId, updatedState);
 
       await interaction.update(buildSbRunSetupUi(`<#${presetChannelId}>`, updatedState));
+      return;
+    }
+
+    if (interaction.customId.startsWith('subscribe:tier')) {
+      await handleTierSelect(interaction);
       return;
     }
     return;

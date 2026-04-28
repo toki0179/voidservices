@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AttachmentBuilder, MessageFlags, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getAccountsByDate } from '../lib/accountsDb.js';
+import { hasAccess } from '../lib/entitlements.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -173,6 +174,14 @@ export default {
     ),
 
   async execute(interaction) {
+    if (!hasAccess(interaction.user.id, 'gen')) {
+      await interaction.reply({
+        content: 'This feature requires premium access. Run `/subscribe` to unlock!',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const iterations = interaction.options.getNumber('iterations', true);
     const userId = interaction.user.id;
     const client = interaction.client;

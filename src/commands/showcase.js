@@ -1,4 +1,5 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { EmbedBuilder, SlashCommandBuilder, MessageFlags } from 'discord.js';
+import { hasAccess } from '../lib/entitlements.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -8,6 +9,14 @@ export default {
     .addStringOption((option) => option.setName('subtitle').setDescription('Card subtitle')),
 
   async execute(interaction) {
+    if (!hasAccess(interaction.user.id, 'showcase')) {
+      await interaction.reply({
+        content: 'This feature requires premium access. Run `/subscribe` to unlock!',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const title = interaction.options.getString('title') ?? 'V0iD Demo Card';
     const subtitle = interaction.options.getString('subtitle') ?? 'Slash-command ready and feature friendly.';
 

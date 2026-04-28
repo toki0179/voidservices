@@ -1,5 +1,6 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, SlashCommandBuilder, ActionRowBuilder } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, SlashCommandBuilder, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { saveToken, hasToken } from '../lib/tokenDb.js';
+import { hasAccess } from '../lib/entitlements.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -7,6 +8,15 @@ export default {
     .setDescription('Register a Discord selfbot token for later use'),
 
   async execute(interaction) {
+    if (!hasAccess(interaction.user.id, 'selfbot')) {
+      await interaction.reply({
+        content: 'This feature requires premium access. Run `/subscribe` to unlock!',
+        flags: MessageFlags.Ephemeral,
+      });
+
+      return;
+    }
+
     if (hasToken(interaction.user.id)) {
       await interaction.reply({
         content: 'You already have a registered selfbot token. Use `/sbdelete` to remove it first.',

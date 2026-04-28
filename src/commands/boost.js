@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
-import { AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
+import { AttachmentBuilder, SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { renderImage } from '../lib/workerPool.js';
+import { hasAccess } from '../lib/entitlements.js';
 
 const fallbackFirstNames = ['Nova', 'Echo', 'Rift', 'Pixel', 'Luna', 'Cipher', 'Moss', 'Ash'];
 const fallbackLastNames = ['Runner', 'Bloom', 'Static', 'Vector', 'Orbit', 'Flare', 'Signal', 'Drift'];
@@ -72,6 +73,14 @@ export default {
     ),
 
   async execute(interaction) {
+    if (!hasAccess(interaction.user.id, 'boost')) {
+      await interaction.reply({
+        content: 'This feature requires premium access. Run `/subscribe` to unlock!',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     await interaction.deferReply();
 
     const displayName = interaction.member?.displayName ?? interaction.user.globalName ?? interaction.user.username;

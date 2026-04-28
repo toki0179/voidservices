@@ -8,6 +8,7 @@ import {
   ChannelType,
 } from 'discord.js';
 import { hasToken } from '../lib/tokenDb.js';
+import { hasAccess } from '../lib/entitlements.js';
 
 export const LLM_MODELS = [
   { value: 'llama3.2:3b', label: 'Llama 3.2 3B', description: "Meta's efficient 3.2B parameter model" },
@@ -161,6 +162,15 @@ export default {
     ),
 
   async execute(interaction) {
+    if (!hasAccess(interaction.user.id, 'selfbot')) {
+      await interaction.reply({
+        content: 'This feature requires premium access. Run `/subscribe` to unlock!',
+        ephemeral: true,
+      });
+
+      return;
+    }
+
     if (!hasToken(interaction.user.id)) {
       await interaction.reply({
         content: 'You need to register a token first using `/sbcreate`.',
